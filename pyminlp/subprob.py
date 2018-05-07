@@ -70,25 +70,6 @@ class Instance:
         self._n_unclassif = 0
 
 
-
-    def _init_new(self, py_model):
-        # TODO cons normalisation
-        # TODO finish
-        self._model = py_model.clone()
-        model = self._model
-        for comp in model.component_objects(descend_into=False):
-            model.del_component(comp)
-        # Reconstruct unit with changed sets.
-        for set in py_model.component_objects(ctype=Set):
-            model.add_component(set.name, Set())
-            for el in set:
-                model.component(set.name).add(
-                    '_{}_{}'.format(Instance._consadd_count, set[el]))
-
-
-
-
-
     def _init(self, model):
         """Derive all attribute values from a given Pyomo model.
         :param model: A Pyomo ConcreteModel representing an instance.
@@ -99,14 +80,11 @@ class Instance:
             self._constypes.append(ct.name)
             # Create _Cons objects and _consmap
             for c in ct:
-                py_cons = ct[c]
-                in_cons = _Cons()
                 # TODO there may be a problem with object identities if
                 # TODO pyrep reference is used
-                in_cons.pyrep = py_cons
-                in_cons.name = py_cons.name
-                in_cons.repclass = ct.name
-                in_cons.index = c
+                py_cons = ct[c]
+                in_cons = _Cons.create(pyrep=py_cons, name=py_cons.name,
+                                       repclass=ct.name, index=c)
                 self._consmap[py_cons.name] = in_cons
                 self._n_unclassif += 1
 
@@ -114,9 +92,9 @@ class Instance:
         """Clone function for an internal Instance object.
         :return: A new internal Instance with copied data.
         """
-        # TODO how deep are the copies
         inst = Instance()
         inst._model = self._model.clone()
+        # TODO how deep are the copies
         inst._constypes = copy.copy(self._constypes)
         inst._consmap = copy.copy(self._consmap)
         inst._classif = copy.copy(self._classif)
@@ -124,11 +102,37 @@ class Instance:
 
 
     def model(self):
+        """Returns a Pyomo representation of the optimisation problem
+        represented by Instance object.
+        :return: A Pyomo ConcreteObject.
+        """
         # TODO maybe only return a copy
         return self._model
 
     def relaxation(self):
+        """Returns a Pyomo representation of the relaxation of the
+        optimisation problem represented by this Instance object.
+        :return: A Pyomo ConcreteObject.
+        """
+        # TODO implement
         pass
+
+    def get_unclassified(self, constype=None):
+        """Returns the index set of all yet unclassified constraints,
+        i.e. all constraints that do not belong to a constraint handler
+        yet.
+        :param constype: A string indicating the desired constraint
+        representation type. If unspecified or None, all constraint
+        representation types are taken into consideration.
+        :return: A list of indices.
+        """
+        set = []
+        for c in self._consmap:
+            cons = self._consmap[c]
+            if constype is None or constype == cons.repclass:
+                if cons.conshdlr is None:
+                    set.append(cons.index)
+        return set
 
 
     def add_constraints(self, constype, conss, params={}):
@@ -201,6 +205,13 @@ class Instance:
         Instance._consadd_count += 1
 
     def change_varbounds(self, var, lower_bound=None, upper_bound=None):
+        """Changes the bounds of a variable.
+        :param var: The name of the variable (string).
+        :param lower_bound: The new lower bound. If unspecified or None,
+        no changes are applied.
+        :param upper_bound: The new upper bound. If unspecified or None,
+        no changes are applied.
+        """
         # Find the correct variable.
         # TODO do it smarter or put it into a seperated function.
         for vartype in self._model.component_objects(Var):
@@ -215,6 +226,10 @@ class Instance:
             var.setub(upper_bound)
 
     def register_constype(self, cons, conshdlr):
+        """Assigns a constraint to a constraint handler.
+        :param cons: The name of the constraint (string).
+        :param conshdlr: The constraint handler object.
+        """
         in_cons = self._consmap[cons.name]
         if in_cons.conshdlr is None:
             self._n_unclassif -= 1
@@ -227,8 +242,19 @@ class Instance:
 
 
 class _Cons:
+    """This internal class stores additional constraint data.
+    """
 
     _counter = 0
+
+    @classmethod
+    def create(cls, pyrep, name, repclass, index):
+        cons = _Cons
+        cons.pyrep = pyrep
+        cons.name = name
+        cons.repclass = repclass
+        cons.index = index
+        return cons
 
     def __init__(self):
         self.id = _Cons._counter
@@ -236,5 +262,8 @@ class _Cons:
         self.pyrep = None
         self.name = None
         self.repclass = None
-        self.conshdlr = None
         self.index = None
+        self.conshdlr = None
+
+    def set_conshdlr(self, conshdlr):
+        self.conshdlr = conshdlr

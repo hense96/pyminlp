@@ -6,21 +6,35 @@ from pyminlp.plugins.quad import *
 
 def foo(filename):
 
-    # create model instance first
+    # Create model instance first.
     model = createInstance(filename)
 
-    # display read instance
+    # Display read instance.
     #model.pprint()
 
-    # set up solver
-    #solver = PyMINLP()
-    #solver.use_constraint_handler(name='quadconv', types=['Quadcons'], relax=False)
-    #solver.use_constraint_handler(name='quadnonc', types=['Quadcons'], relax=False)
+    # Set up solver.
+    solver = PyMINLP()
+    solver.use_constraint_handler(name='linear', types=['Quadcons', 'Cuts'],
+                                  prio=1, relax=True)
+    solver.use_constraint_handler(name='quadconv', types=['Quadcons'],
+                                  prio=2, relax=False)
+    solver.use_constraint_handler(name='quadnonc', types=['Quadcons'],
+                                  prio=3, relax=False)
 
+    solver.solve(model)
+
+    # Testing
+    #int_inst = Instance.create_instance(model)
+    #testing(model, int_inst)
+
+    # Doing stuff with the constraint classifiers.
+
+    print('Done')
+
+
+def testing(model, int_inst):
     ch1 = QuadConvHandler()
     ch2 = QuadNoncHandler()
-
-    int_inst = Instance.create_instance(model)
 
     count = 0
     for ct in model.component_objects(ctype=Constraint):
@@ -48,9 +62,6 @@ def foo(filename):
                              {'cn':par_c, 'An':par_A, 'bn':par_b, 'kn':k})
 
     int_inst.change_varbounds(model.X['x1'], lower_bound=-5.0, upper_bound=5.0)
-
-
-    print('Done')
 
 
 def createInstance( filename ):

@@ -12,6 +12,10 @@ class ConsHandler:
         # passed to the relaxation solver.
         self._relax = False
         self._types = []
+        self._prio = None
+
+    def __lt__(self, other):
+        return self.name() < other.name()
 
     def get_relax(self):
         return self._relax
@@ -24,6 +28,12 @@ class ConsHandler:
 
     def set_reptypes(self, reptypes):
         self._types.extend(reptypes)
+
+    def get_prio(self):
+        return self._prio
+
+    def set_prio(self, prio):
+        self._prio = prio
 
 
     def name(cls):

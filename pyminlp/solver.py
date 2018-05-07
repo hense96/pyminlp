@@ -4,25 +4,32 @@
 # moved to a different location later.
 
 
+import heapq
+
 from pyminlp.plugins.quad import *
+from pyminlp.subprob import Instance
 
 
 class PyMINLP:
 
     def __init__(self):
-        # TODO make a plugin out of it
+        # TODO implement this as a plugin.
         self._known_hdlrs = []
+        self._known_hdlrs.append(LinearHandler())
         self._known_hdlrs.append(QuadConvHandler())
         self._known_hdlrs.append(QuadNoncHandler())
         self._used_hdlrs = []
+        self._cur_instance = None
+        self._cur_handler = None
 
     # Set up
-    def use_constraint_handler(self, name, types, relax=False):
+    def use_constraint_handler(self, name, types, prio, relax=False):
         for hdlr in self._known_hdlrs:
             if hdlr.name() == name:
                 hdlr.set_relax(relax)
-                hdlr.set_types(types)
-                self._used_hdlrs.append(hdlr)
+                hdlr.set_reptypes(types)
+                hdlr.set_prio(prio)
+                heapq.heappush(self._used_hdlrs, (hdlr.get_prio(), hdlr))
                 break
 
     # Settings
@@ -33,8 +40,30 @@ class PyMINLP:
     def set_epsilon(self, epsilon):
         pass
 
+    # Solve
+    def solve(self, py_model):
+        """This is a dummy function that is called by the interface to
+        simulate all functionality the solver already has."""
+        instance = Instance.create_instance(py_model)
+        # Call identify function of all used constraint handlers.
+        for (_, hdlr) in self._used_hdlrs:
+            set = {}
+            model = instance.model()
+            for reptype in hdlr.get_reptypes():
+                set[type] = instance.get_unclassified()
+            hdlr.identify(set, model)
+        # Rest is called by example interface. But only use solver as
+        # interface!
+
+    def register_instance(self, instance=None, constraint_handler=None):
+        if instance is not None:
+            self._cur_instance = instance
+        if constraint_handler is not None:
+            self._cur_handler = constraint_handler
+
+
     # Plugin function library
-    def add_constraints(self, constype, conss, params=None):
+    def add_constraints(self, constype, conss, params={}):
         """Note that the index set of the multiple conss may be accessed
         through the conss object
         :param name: string or direct reference to indicate
@@ -43,22 +72,28 @@ class PyMINLP:
         :param params: dictionary of parameters, key is reference to
                        model.A for example and parameters itself content
         """
-        pass
+        self._cur_instance.add_constraints(constype, conss, params)
 
 
-    def branch(self, branching_expr):
+    def branch(self, var, point):
         # branching_expr is either some sort of constraint expression or
         # branching point. Concrete representation may be chosen later.
         # This is concrete enough for the moment.
         # The children will have to be passed somewhere.
-        pass
+        left = Instance.derive_instance(self._cur_instance)
+        self.change_bound(var, upper=point)
+        right = Instance.derive_instance(self._cur_instance)
+        self.change_bound(var, lower=point)
+        return left, right
 
-    def change_bound(self, var, lower, upper):
+    def change_bound(self, var, lower=None, upper=None):
+        # Var is a name.
         # Offer this function either for a concrete variable or for a
         # whole bounds object. This has to be decided at a later point
         # in time.
-        pass
+        self._cur_instance.change_varbounds(var, lower=lower, upper=upper)
 
     def match(self, cons):
+        # Cons is a name.
         # Registers that a cons belongs to a constraint handler.
-        pass
+        self._cur_instance.register_constype(cons, self._cur_handler)
