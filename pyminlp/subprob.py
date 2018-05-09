@@ -146,31 +146,7 @@ class Instance:
         # Check if parameters and constraints already exist
         component = self._model.component(constype)
         if component is None:
-            # Add set, parameter, constraint objects.
-            self._model.add_component('_{}_Set'.format(constype), Set())
-            set = self._model.component('_{}_Set'.format(constype))
-            self._model.add_component(constype, Constraint(set))
-            for p in params.keys():
-                new_index_set = params[p].index_set()
-                if not new_index_set == {None} \
-                       and not constraints.index_set() is new_index_set:
-                    # TODO handle this case
-                    if new_index_set.dimen == 1:
-                        new_index_set = [set, new_index_set]
-                    elif constraints.index_set() in new_index_set.set_tuple:
-                        new_index_set = list(new_index_set.set_tuple)
-                        new_index_set[new_index_set.index(constraints.index_set())] = set
-                    # TODO handle this case
-                    else:
-                        new_index_set = list(new_index_set.set_tuple)
-                        new_index_set.insert(0, set)
-                    self._model.add_component(p, Param(*new_index_set,
-                                                       mutable=True,
-                                                       default=params[
-                                                           p].default()))
-                else:
-                    self._model.add_component(p, Param(set, mutable=True,
-                                                 default=params[p].default()))
+            self._add_components(constype, constraints.index_set(), params)
             component = self._model.component(constype)
 
         # Find the underlying set.
@@ -255,6 +231,56 @@ class Instance:
             self._classif[conshdlr.name()] = [in_cons]
 
 
+    # Miscellaneous functions.
+
+    def _add_components(self, constype, cons_index_set, params):
+        """Adds the constype and the parameter types to the internal
+        Pyomo model. Creates a new set that works as an extensible index
+        set for adding constraint and parameter objects later.
+
+        :param constype: The constraint type to be added. It must not be
+        already part of the Pyomo model.
+        :param cons_index_set: The index set of the constraints to be
+        added.
+        :param params: The dictionary of parameters.
+        """
+        # Add set and constraint component.
+        setname = '_{}_Set'.format(constype)
+        self._model.add_component(setname, Set())
+        set = self._model.component(setname)
+        self._model.add_component(constype, Constraint(set))
+        # Add parameters.
+        for p in params.keys():
+            # Generate the new index set by replacing the constraint
+            # set by the new set. Consider different cases...
+            new_index_set = params[p].index_set()
+            if not new_index_set == {None} \
+                    and not cons_index_set is new_index_set:
+                # TODO handle this case
+                if new_index_set.dimen == 1:
+                    # Case: the index set has one set that is not the
+                    # constraint set.
+                    new_index_set = [set, new_index_set]
+                elif cons_index_set in new_index_set.set_tuple:
+                    # Case: the constraint set is part of the parameter
+                    # index set.
+                    new_index_set = list(new_index_set.set_tuple)
+                    new_index_set[
+                        new_index_set.index(cons_index_set)] = set
+                # TODO handle this case
+                else:
+                    # Case: the index set has multiple sets, but none of
+                    # them is the constraint index set
+                    new_index_set = list(new_index_set.set_tuple)
+                    new_index_set.insert(0, set)
+                self._model.add_component(p, Param(*new_index_set,
+                                                   mutable=True,
+                                                   default=params[
+                                                       p].default()))
+            else:
+                self._model.add_component(p, Param(set, mutable=True,
+                                                   default=params[
+                                                       p].default()))
 
 class _Cons:
     """
