@@ -1,21 +1,48 @@
 from pyomo.environ import *
+from pyminlp.solver import PyMINLP
+from pyminlp.subprob import *
+from pyminlp.plugins.quad import *
 
 
+def foo(filename):
 
-def solveQCQP(filename):
+    # Create model instance first.
+    model = createInstance(filename)
 
-    # create model instance first
-    instance = createInstance(filename)
+    # Set up solver.
+    solver = PyMINLP()
+    solver.use_constraint_handler(name='linear',
+                                  types=['Quadcons1', 'Quadcons2', 'Cuts'],
+                                  prio=1, relax=True)
+    solver.use_constraint_handler(name='quadconv',
+                                  types=['Quadcons1', 'Quadcons2'],
+                                  prio=2, relax=False)
+    solver.use_constraint_handler(name='quadnonc',
+                                  types=['Quadcons1', 'Quadcons2'],
+                                  prio=3, relax=False)
+    solver.solve(model)
 
-    # display read instance
-    #instance.pprint()
+    # Plugin simulation.
+    hdlrs = solver._used_hdlrs
+    for (_, hdlr) in hdlrs:
+        if hdlr.name() == 'quadconv':
+            conv_hdlr = hdlr
+        elif hdlr.name() == 'quadnonc':
+            nonc_hdlr = hdlr
 
-    # solve instance
-    #opt = PyMINLP()
-    #results = opt.solve(instance)
+    # Cutting plane generation
+    violated_conss = {'Quadcons1':['e1', 'e2']}
+    conv_hdlr.separate(violated_conss, model, model.clone())
+    conv_hdlr.separate(violated_conss, model, model.clone())
+
+    # Branching
+    nonc_hdlr.branch(violated_conss, model)
 
 
-def createInstance(filename):
+    print('Done')
+
+
+def createInstance( filename ):
     """Find the model specification in this function. It creates an
     instance of this model using the provided data file and returns this
     instance.
@@ -30,7 +57,7 @@ def createInstance(filename):
 
     # Constraint parameters
     model.A = Param(model.C, model.V, model.V, default=0)
-    model.b = Param(model.C, model.V, dfault=0)
+    model.b = Param(model.C, model.V, default=0)
     model.c = Param(model.C, default=0)
 
     # Constraint bounds
@@ -57,12 +84,19 @@ def createInstance(filename):
     model.Obj = Objective(rule=obj_rule, sense=minimize)
 
     # Constraints
-    def cons_rule(model, i):
-        quad = sum(sum(model.A[i, k1, k2] * model.X[k1] * model.X[k2] for k1 in
-                       model.V) for k2 in model.V)
+    def cons_rule_1(model, i):
+        quad = sum(sum(model.A[i, k1, k2] * model.X[k1] * model.X[k2]
+                       for k1 in model.V) for k2 in model.V)
         lin = sum(model.b[i, k] * model.X[k] for k in model.V) + model.c[i]
-        return model.cl[i], quad + lin, model.cu[i]
-    model.Cons = Constraint(model.C, rule=cons_rule)
+        return quad + lin <= model.cu[i]
+    model.Quadcons1 = Constraint(model.C, rule=cons_rule_1)
+
+    def cons_rule_2(model, i):
+        quad = sum(sum(model.A[i, k1, k2] * model.X[k1] * model.X[k2]
+                       for k1 in model.V) for k2 in model.V)
+        lin = sum(model.b[i, k] * model.X[k] for k in model.V) + model.c[i]
+        return -(quad + lin) <= -model.cl[i]
+    model.Quadcons2 = Constraint(model.C, rule=cons_rule_2)
 
     instance = model.create_instance(filename)
 

@@ -13,6 +13,7 @@ class ConsHandler:
         self._relax = False
         self._types = []
         self._prio = None
+        self.solver = None
 
     def __lt__(self, other):
         return self.name() < other.name()
@@ -42,7 +43,7 @@ class ConsHandler:
         raise NotImplementedError('Please assign a name to this constraint'
                                   'handler!')
 
-    def identify(self, set, model):
+    def identify(self, sets, model):
         """Checks whether a constraint belongs to this constraint
         handler.
         """
@@ -50,20 +51,20 @@ class ConsHandler:
         raise NotImplementedError('Identify method of {} handler not '
                                   'implemented!'.format(name))
 
-    def separate(self, set, model):
+    def separate(self, sets, model, add_model):
         """Implements a strategy to add underestimators for the given
         constraints."""
         name = self.name()
         raise NotImplementedError('Separate method of {} handler not '
                                   'implemented!'.format(name))
 
-    def branch(self, set, model):
+    def branch(self, sets, model):
         """Implements the branching strategy."""
         name = self.name()
         raise NotImplementedError('Branch method of {} handler '
                                   'not implemented!'.format(name))
 
-    def tighten(self, set, model):
+    def tighten(self, sets, model):
         """Implements a strategy for inferring tighter variable bounds
         from the constraints."""
         name = self.name()

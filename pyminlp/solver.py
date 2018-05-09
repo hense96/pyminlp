@@ -18,6 +18,8 @@ class PyMINLP:
         self._known_hdlrs.append(LinearHandler())
         self._known_hdlrs.append(QuadConvHandler())
         self._known_hdlrs.append(QuadNoncHandler())
+        for hdlr in self._known_hdlrs:
+            hdlr.solver = self
         self._used_hdlrs = []
         self._cur_instance = None
         self._cur_handler = None
@@ -44,14 +46,18 @@ class PyMINLP:
     def solve(self, py_model):
         """This is a dummy function that is called by the interface to
         simulate all functionality the solver already has."""
-        instance = Instance.create_instance(py_model)
+        self._cur_instance = Instance.create_instance(py_model)
+        instance = self._cur_instance
+        # TODO first breakpoint, show internal instance
         # Call identify function of all used constraint handlers.
         for (_, hdlr) in self._used_hdlrs:
             set = {}
             model = instance.model()
             for reptype in hdlr.get_reptypes():
-                set[type] = instance.get_unclassified()
+                set[reptype] = instance.get_unclassified(reptype)
+            self._cur_handler = hdlr
             hdlr.identify(set, model)
+        # TODO second breakpont, show internal instance
         # Rest is called by example interface. But only use solver as
         # interface!
 
@@ -73,6 +79,13 @@ class PyMINLP:
                        model.A for example and parameters itself content
         """
         self._cur_instance.add_constraints(constype, conss, params)
+        for (_, hdlr) in self._used_hdlrs:
+            set = {}
+            model = self._cur_instance.model()
+            for reptype in hdlr.get_reptypes():
+                set[reptype] = self._cur_instance.get_unclassified(reptype)
+            self._cur_handler = hdlr
+            hdlr.identify(set, model)
 
 
     def branch(self, var, point):
@@ -80,10 +93,14 @@ class PyMINLP:
         # branching point. Concrete representation may be chosen later.
         # This is concrete enough for the moment.
         # The children will have to be passed somewhere.
-        left = Instance.derive_instance(self._cur_instance)
+        inst = self._cur_instance
+        left = Instance.derive_instance(inst)
+        self._cur_instance = left
         self.change_bound(var, upper=point)
-        right = Instance.derive_instance(self._cur_instance)
+        right = Instance.derive_instance(inst)
+        self._cur_instance = right
         self.change_bound(var, lower=point)
+        self._cur_instance = inst
         return left, right
 
     def change_bound(self, var, lower=None, upper=None):
@@ -91,9 +108,10 @@ class PyMINLP:
         # Offer this function either for a concrete variable or for a
         # whole bounds object. This has to be decided at a later point
         # in time.
-        self._cur_instance.change_varbounds(var, lower=lower, upper=upper)
+        self._cur_instance.change_varbounds(var, lower_bound=lower,
+                                                 upper_bound=upper)
 
     def match(self, cons):
         # Cons is a name.
         # Registers that a cons belongs to a constraint handler.
-        self._cur_instance.register_constype(cons, self._cur_handler)
+        self._cur_instance.register_conshandler(cons, self._cur_handler)

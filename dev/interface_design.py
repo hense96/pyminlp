@@ -41,10 +41,10 @@ def testing(model, int_inst):
         for c in ct:
             py_cons = ct[c]
             if count == 0:
-                int_inst.register_constype(py_cons, ch1)
+                int_inst.register_conshandler(py_cons, ch1)
                 count = 1
             else:
-                int_inst.register_constype(py_cons, ch2)
+                int_inst.register_conshandler(py_cons, ch2)
                 count = 0
 
     clone = model.clone()
