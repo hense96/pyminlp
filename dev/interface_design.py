@@ -24,8 +24,8 @@ def foo(filename):
     solver.solve(model)
 
     # Testing
-    #int_inst = Instance.create_instance(model)
-    #testing(model, int_inst)
+    int_inst = Instance.create_instance(model)
+    testing(model, int_inst)
 
     # Doing stuff with the constraint classifiers.
 
@@ -33,19 +33,6 @@ def foo(filename):
 
 
 def testing(model, int_inst):
-    ch1 = QuadConvHandler()
-    ch2 = QuadNoncHandler()
-
-    count = 0
-    for ct in model.component_objects(ctype=Constraint):
-        for c in ct:
-            py_cons = ct[c]
-            if count == 0:
-                int_inst.register_conshandler(py_cons, ch1)
-                count = 1
-            else:
-                int_inst.register_conshandler(py_cons, ch2)
-                count = 0
 
     clone = model.clone()
     new_cons = clone.Quadcons
@@ -61,7 +48,7 @@ def testing(model, int_inst):
     int_inst.add_constraints('Cons', new_cons,
                              {'cn':par_c, 'An':par_A, 'bn':par_b, 'kn':k})
 
-    int_inst.change_varbounds(model.X['x1'], lower_bound=-5.0, upper_bound=5.0)
+    int_inst.change_varbounds(model.X['x1'].name, lower_bound=-5.0, upper_bound=5.0)
 
 
 def createInstance( filename ):
