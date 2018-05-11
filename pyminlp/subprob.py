@@ -27,8 +27,6 @@ class Instance:
                          their constraint lists (list of internal
                          constraint representation). The key of the
                          dictionary is the constraint handler name.
-        _n_unclassif     The number of internal constraint objects that
-                         do not have a constraint classifier assigned.
         _consadd_count   Counts how often the add_constraints(...)
                          function is called (static).
     """
@@ -43,24 +41,32 @@ class Instance:
         :return: An new internal Instance containing all necessary data.
         """
         assert isinstance(py_model, Model)
+        if not py_model.is_constructed():
+            raise ValueError('The Pyomo model {} is not'
+                             'constructed.'.format(py_model))
         inst = Instance()
         # TODO standardise all constraints to <= 0.. maybe offer option
         # TODO to turn this off
-        #
-        # TODO maybe no deepcopy for space efficiency
         inst._init(py_model)
         return inst
 
     @classmethod
     def derive_instance(cls, instance):
         """Factory method. Derives a new instance from an existing
-        instance. Deepcopies all data.
+        instance. Deepcopies the model.
+
+        Precondition: all constraints of the given instance are
+        classified, i.e. they hava an assigned constraint handler.
 
         :param instance: An existing internal Instance object.
         :return: A new internal Instance object containing the same
         data.
         """
         assert type(instance) is Instance
+        if instance.nunclassified() > 0:
+            raise ValueError('The instance {} has unclassified constraints and'
+                             'can therefore not be cloned.'.format(instance))
+        # TODO maybe no model deepcopy for space efficiency.
         new_inst = instance._clone()
         return new_inst
 
@@ -73,7 +79,6 @@ class Instance:
         self._model = None
         self._consmap = {}
         self._classif = {}
-        self._n_unclassif = 0
 
     def _init(self, model):
         """Derives all attribute values from a given Pyomo model.
@@ -83,8 +88,6 @@ class Instance:
         for ct in model.component_objects(ctype=Constraint):
             # Create _Cons objects and _consmap
             for c in ct:
-                # TODO there may be a problem with object identities if
-                # TODO pyrep reference is used
                 self._create_constraint(constraint=ct[c], constype=ct.name,
                                         index=c)
 
@@ -94,12 +97,11 @@ class Instance:
         """
         inst = Instance()
         inst._model = self._model.clone()
-        # TODO how deep are the copies
         inst._consmap = copy.copy(self._consmap)
-        inst._classif = copy.copy(self._classif)
-        inst._n_unclassif = self._n_unclassif
+        inst._classif = copy.deepcopy(self._classif)
         return inst
 
+    # Functions for providing data.
 
     def model(self):
         """Returns a Pyomo representation of the optimisation problem
@@ -117,7 +119,7 @@ class Instance:
         # TODO implement
         pass
 
-    def get_constypes(self):
+    def constypes(self):
         """Returns all constraint types in the model instance.
         :return: A list of strings representing constraint types."""
         list = []
@@ -125,7 +127,7 @@ class Instance:
             list.append(cons.name)
         return list
 
-    def get_unclassified(self, constype=None):
+    def unclassified(self, constype=None):
         """Returns the index set of all yet unclassified constraints,
         i.e. all constraints that do not belong to a constraint handler
         yet.
@@ -135,14 +137,25 @@ class Instance:
         :return: A list of indices.
         """
         assert constype is None or type(constype) is str
-        set = []
+        index_set = []
         for c in self._consmap:
             cons = self._consmap[c]
             if constype is None or constype == cons.constype:
                 if cons.conshdlr is None:
-                    set.append(cons.index)
-        return set
+                    index_set.append(cons.index)
+        return index_set
 
+    def nconstraints(self):
+        """Returns the number of constraints this instance has.
+        :return: Number of constraints (int)."""
+        return len(self._consmap.keys())
+
+    def nunclassified(self):
+        """Returns the number of constraints without constraint handler.
+        :return: Number of unclassified constraints."""
+        return len(self.unclassified())
+
+    # Interface functions for constraint handler plugins.
 
     def add_constraints(self, constype, constraints, params={}):
         """Add a new set of constraints and parameters to the internal
@@ -281,12 +294,10 @@ class Instance:
         """
         assert type(varname) is str
         # Find the correct variable.
-        # TODO do it smarter or put it into a seperated function.
-        for vartype in self._model.component_objects(Var):
-            for v in vartype:
-                if vartype[v].name == varname:
-                    var = vartype[v]
-                    break
+        var = self._find_var(varname)
+        if var is None:
+            raise KeyError('Variable {} does not exist in Instance'
+                           ' {}'.format(varname, self))
         # Manipulate the bounds.
         if lower_bound is not None:
             var.setlb(lower_bound)
@@ -295,22 +306,22 @@ class Instance:
 
     def register_conshandler(self, constraint, conshdlr):
         """Assigns a constraint to a constraint handler.
+        One may only assign a constraint to a constraint handler once.
         :param constraint: The name of the constraint (string).
         :param conshdlr: The constraint handler object.
         """
-        in_cons = self._consmap[constraint]
-        if in_cons.conshdlr is None:
-            self._n_unclassif -= 1
-        else:
-            old_hdlr = in_cons.conshdlr
-            list = self._classif[old_hdlr.name()]
-            list.remove(in_cons)
+        assert type(constraint) is str
+        assert isinstance(conshdlr, ConsHandler)
+        try:
+            in_cons = self._consmap[constraint]
+        except KeyError:
+            raise ValueError('Constraint {} does not exist in'
+                             ' Instance {}'.format(constraint, self))
         in_cons.set_conshdlr(conshdlr)
         if conshdlr.name() in self._classif.keys():
             self._classif[conshdlr.name()].append(in_cons)
         else:
             self._classif[conshdlr.name()] = [in_cons]
-
 
     # Miscellaneous functions.
 
@@ -365,8 +376,7 @@ class Instance:
 
     def _create_constraint(self, constraint, constype, index):
         """Function to generate an internal constraint representation
-        and to update the affected data structures, i.e. _consmap and
-        _n_unclassified.
+        and to update the affected data structures, i.e. _consmap.
 
         :param constraint: The Pyomo constraint.
         :param constype: The constraint type of the constraint (string).
@@ -376,20 +386,35 @@ class Instance:
         in_cons = _Cons.create(pyrep=constraint, name=constraint.name,
                                constype=constype, index=index)
         self._consmap[constraint.name] = in_cons
-        self._n_unclassif += 1
+
+    def _find_var(self, varname):
+        """Returns the variable object of the variable with the given
+        variable name.
+        :varname: The name of the variable (string).
+        :return: A Pyomo variable object, None if there is no match."""
+        assert type(varname) is str
+        for vartype in self._model.component_objects(Var):
+            for v in vartype:
+                if vartype[v].name == varname:
+                    return vartype[v]
+        return None
 
 
 class _Cons:
     """
-    This internal class stores additional constraint data. that are not
-    represented in the Pyomo model.
+    This internal class stores additional constraint data that are not
+    represented in the Pyomo model. These data are global for each
+    constraint, i.e. they are the same in each Instance object.
 
     Use the factory method _Cons.create(...) for generating a new
     instance.
 
     Public class attributes:
         id        A unique identifier for the constraint representation.
-        pyrep     A Pyomo object representing the constraint.
+        pyrep     A Pyomo object representing the constraint. This is
+                      not necessarily a reference to the Pyomo
+                      representation in Instance object that uses this
+                      _Cons object.
         name      The Pyomo name of the constraint (string). It consists
                       of constype[index].
         constype  The user defined constraint type string.
@@ -409,10 +434,11 @@ class _Cons:
         """Factory method to generate a new constraint. Parameters as
         described above.
         """
-        # TODO maybe catch cases of bad usage, i.e. type checks for
-        # TODO parameters.
         assert type(name) is str
         assert type(constype) is str
+        if not '{}[{}]'.format(constype, index) == name\
+            or not name == pyrep.name:
+            raise ValueError('Parameter values do not match.')
         cons = _Cons()
         cons._pyrep = pyrep
         cons._name = name
@@ -471,6 +497,11 @@ class _Cons:
         return self._conshdlr
 
     def set_conshdlr(self, conshdlr):
-        """Manipulate the constraint's constraint handler."""
+        """Manipulate the constraint's constraint handler.
+        One may only set the constraint handler once.
+        """
         assert isinstance(conshdlr, ConsHandler)
+        if self._conshdlr is not None:
+            ValueError('Constraint {} is already assigned to constraint'
+                       ' handler {}.'.format(self.name, self.conshdlr.name()))
         self._conshdlr = conshdlr

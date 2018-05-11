@@ -54,7 +54,7 @@ class PyMINLP:
             set = {}
             model = instance.model()
             for reptype in hdlr.get_reptypes():
-                set[reptype] = instance.get_unclassified(reptype)
+                set[reptype] = instance.unclassified(reptype)
             self._cur_handler = hdlr
             hdlr.identify(set, model)
         # TODO second breakpont, show internal instance
@@ -83,7 +83,7 @@ class PyMINLP:
             set = {}
             model = self._cur_instance.model()
             for reptype in hdlr.get_reptypes():
-                set[reptype] = self._cur_instance.get_unclassified(reptype)
+                set[reptype] = self._cur_instance.unclassified(reptype)
             self._cur_handler = hdlr
             hdlr.identify(set, model)
 

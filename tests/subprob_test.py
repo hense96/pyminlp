@@ -14,6 +14,10 @@ class DiseaseEstimation(unittest.TestCase):
 
 
     def setUp(self):
+        """Generates the disease estimation model from the Pyomo book
+        and saves the resulting constructed ConcreteModel. Additionally
+        creates two dummy constraint handler.
+        """
         model = AbstractModel()
 
         model.S_SI = Set(ordered=True)
@@ -59,7 +63,12 @@ class DiseaseEstimation(unittest.TestCase):
         self.dummy1 = ConsHandlerDummy1()
         self.dummy2 = ConsHandlerDummy2()
 
-    def parameter_consistency_test(self):
+
+    def data_consistency_test(self):
+        """ This test focuses on the consistency of the attributes of
+        an Instance object and the consistency of the data providing
+        functions executing different changes.
+        """
         # Initialisation test.
         int_inst = Instance.create_instance(self.instance)
         # Count constraints.
@@ -67,11 +76,11 @@ class DiseaseEstimation(unittest.TestCase):
         self.assertEqual(int_inst._model.nconstraints(), n_conss)
         self.assertEqual(len(int_inst._consmap), n_conss)
         self.assertEqual(len(int_inst._classif), 0)
-        self.assertEqual(int_inst._n_unclassif, n_conss)
-        self.assertEqual(len(int_inst.get_unclassified()), n_conss)
-        self.assertEqual(len(int_inst.get_unclassified('InfDynamics')),
-                        len(self.instance.S_SI.value) - 1)
-        self.assertEqual(len(int_inst.get_constypes()), 3)
+        self.assertEqual(int_inst.nunclassified(), n_conss)
+        self.assertEqual(len(int_inst.unclassified()), n_conss)
+        self.assertEqual(len(int_inst.unclassified('InfDynamics')),
+                         len(self.instance.S_SI.value) - 1)
+        self.assertEqual(len(int_inst.constypes()), 3)
         # Check _Cons object content.
         constypes = set([])
         for c in int_inst._consmap.keys():
@@ -88,32 +97,30 @@ class DiseaseEstimation(unittest.TestCase):
                              cons.name)
             constypes.add(cons.constype)
         self.assertEqual(constypes,
-                        set(int_inst.get_constypes()))
+                         set(int_inst.constypes()))
 
         # Register constraint handler.
-        typelist = int_inst.get_constypes()
+        typelist = int_inst.constypes()
         removed_type = 'InfDynamics'
         typelist.remove(removed_type)
         for constype in typelist:
             cons = int_inst.model().component(constype)
-            indices = int_inst.get_unclassified(constype)
-            for index in indices:
-                int_inst.register_conshandler(cons[index].name, self.dummy2)
+            indices = int_inst.unclassified(constype)
             for index in indices:
                 int_inst.register_conshandler(cons[index].name, self.dummy1)
-        self.assertEqual(int_inst._n_unclassif, len(self.instance.S_SI.value)
+        self.assertEqual(int_inst.nunclassified(), len(self.instance.S_SI.value)
                          - 1)
-        self.assertEqual(len(int_inst.get_unclassified()),
-                        len(self.instance.S_SI.value) - 1)
-        self.assertEqual(len(int_inst.get_unclassified(removed_type)),
-                        len(self.instance.S_SI.value) - 1)
+        self.assertEqual(len(int_inst.unclassified()),
+                         len(self.instance.S_SI.value) - 1)
+        self.assertEqual(len(int_inst.unclassified(removed_type)),
+                         len(self.instance.S_SI.value) - 1)
         for constype in typelist:
-            self.assertEqual(len(int_inst.get_unclassified(constype)), 0)
-        for index in int_inst.get_unclassified(removed_type):
+            self.assertEqual(len(int_inst.unclassified(constype)), 0)
+        for index in int_inst.unclassified(removed_type):
             cons = int_inst.model().component(removed_type)
             int_inst.register_conshandler(cons[index].name, self.dummy2)
-        self.assertEqual(int_inst._n_unclassif, 0)
-        self.assertEqual(len(int_inst.get_unclassified()), 0)
+        self.assertEqual(int_inst.nunclassified(), 0)
+        self.assertEqual(len(int_inst.unclassified()), 0)
 
         # Add constraints.
         add_model = ConcreteModel()
@@ -141,10 +148,10 @@ class DiseaseEstimation(unittest.TestCase):
                 count += 1
         self.assertEqual(count, n_conss)
         self.assertEqual(len(int_inst._consmap), n_conss)
-        self.assertEqual(int_inst._n_unclassif, 15)
-        self.assertEqual(len(int_inst.get_unclassified()), 15)
-        self.assertEqual(len(int_inst.get_unclassified('Cut')), 15)
-        self.assertEqual(len(int_inst.get_constypes()), 4)
+        self.assertEqual(int_inst.nunclassified(), 15)
+        self.assertEqual(len(int_inst.unclassified()), 15)
+        self.assertEqual(len(int_inst.unclassified('Cut')), 15)
+        self.assertEqual(len(int_inst.constypes()), 4)
 
         for c in int_inst._consmap.keys():
             cons = int_inst._consmap[c]
@@ -160,9 +167,9 @@ class DiseaseEstimation(unittest.TestCase):
             constypes.add(cons.constype)
 
         cons = int_inst.model().component('Cut')
-        for index in int_inst.get_unclassified('Cut'):
+        for index in int_inst.unclassified('Cut'):
             int_inst.register_conshandler(cons[index].name, self.dummy2)
-        self.assertEqual(int_inst._n_unclassif, 0)
+        self.assertEqual(int_inst.nunclassified(), 0)
 
         self.assertEqual(len(int_inst._classif.keys()), 2)
         count = 0
@@ -178,10 +185,162 @@ class DiseaseEstimation(unittest.TestCase):
         self.assertEqual(len(int_inst._model.component('Par')), 15)
 
 
+    def copy_depth_test(self):
+        """This test focuses on the interdependence of Instance objects
+        that are derived from each other. It checks if the attributes
+        change globally or locally when changed locally. Some attributes
+        have local and some have global character.
+        """
+        int_inst = Instance.create_instance(self.instance)
+
+        # Attribute manipulation via constraint handler.
+        constypes = int_inst.constypes()
+        for constype in constypes:
+            cons = int_inst.model().component(constype)
+            indices = int_inst.unclassified(constype)
+            for index in indices:
+                int_inst.register_conshandler(cons[index].name, self.dummy2)
+        count = int_inst.nunclassified()
+
+        int_inst_l = Instance.derive_instance(int_inst)
+        self.assertEqual(count, int_inst_l.nunclassified())
+
+        int_inst_r = Instance.derive_instance(int_inst)
+        self.assertEqual(count, int_inst_r.nunclassified())
+
+        self.assertEqual(int_inst.nunclassified(), count)
+        self.assertEqual(int_inst_r.nunclassified(), count)
+
+        count_o = 0
+        count_r = 0
+        for key in int_inst._consmap.keys():
+            hdlr = int_inst._consmap[key].conshdlr
+            self.assertTrue(hdlr is None or hdlr.name() == 'dummy2')
+            if hdlr is not None:
+                count_o += 1
+        for key in int_inst_r._consmap.keys():
+            hdlr = int_inst_r._consmap[key].conshdlr
+            self.assertTrue(hdlr is None or hdlr.name() == 'dummy2')
+            if hdlr is not None:
+                count_r += 1
+        self.assertEqual(int_inst.nconstraints() - count_o, count)
+        self.assertEqual(int_inst.nconstraints() - count_r, count)
+
+        self.assertEqual(len(int_inst._classif.keys()), 1)
+        self.assertEqual(len(int_inst_r._classif.keys()), 1)
+        self.assertEqual(len(int_inst._classif['dummy2']),
+                         int_inst.nconstraints())
+        self.assertEqual(len(int_inst_r._classif['dummy2']),
+                         int_inst_r.nconstraints())
+
+        # Model manipulation.
+        int_inst.model().InfDynamics.deactivate()
+        int_inst.model().preprocess()
+
+        int_inst_l._model.SusDynamics.deactivate()
+        int_inst_l.model().preprocess()
+
+        self.assertTrue(int_inst_l.model().InfDynamics._active)
+        self.assertTrue(int_inst_r.model().InfDynamics._active)
+        self.assertFalse(int_inst.model().InfDynamics._active)
+        self.assertTrue(int_inst.model().SusDynamics._active)
+        self.assertTrue(int_inst_r.model().SusDynamics._active)
+        self.assertFalse(int_inst_l.model().SusDynamics._active)
+
+        int_inst.model().InfDynamics.activate()
+        int_inst.model().preprocess()
+
+        int_inst_l.model().SusDynamics.activate()
+        int_inst_l.model().preprocess()
+
+        # Adding constraints
+        n_cons = int_inst.nconstraints()
+        self.assertEqual(n_cons, self.instance.nconstraints())
+        self.assertEqual(n_cons, int_inst_r.nconstraints())
+
+        add_model = ConcreteModel()
+        add_model.S = Set(initialize=[1, 2, 3])
+        add_model.Par = Param(add_model.S, initialize={1: 1, 2: 2, 3: 3})
+        add_model.I = Var(self.instance.S_SI, bounds=(0, self.instance.P_POP),
+                          initialize=1)
+
+        def cut_rule(model, j):
+            return model.I[3] <= add_model.Par[j]
+
+        add_model.Cut = Constraint(add_model.S, rule=cut_rule)
+
+        for i in range(5):
+            int_inst_l.add_constraints('Cut', add_model.Cut,
+                                     {'Par': add_model.Par})
+
+        self.assertEqual(int_inst_l.nconstraints(), n_cons + 15)
+        self.assertEqual(int_inst.nconstraints(), n_cons)
+        self.assertEqual(int_inst_r.nconstraints(), n_cons)
+        self.assertEqual(len(int_inst_l.constypes()), 4)
+        self.assertEqual(len(int_inst.constypes()), 3)
+        self.assertEqual(len(int_inst_r.constypes()), 3)
+
+        for i in range(3):
+            int_inst_r.add_constraints('Cut', add_model.Cut,
+                                     {'Par': add_model.Par})
+
+        self.assertEqual(int_inst_r.nconstraints(), n_cons + 9)
+        self.assertEqual(int_inst_l.nconstraints(), n_cons + 15)
+        self.assertEqual(int_inst.nconstraints(), n_cons)
+
+        # Check attributes again
+        self.assertEqual(len(int_inst_r._consmap.keys()), n_cons + 9)
+        self.assertEqual(len(int_inst_l._consmap.keys()), n_cons + 15)
+        self.assertEqual(len(int_inst._consmap.keys()), n_cons)
+
+        count = len(int_inst_l._classif['dummy2'])
+
+        for index in int_inst_r.unclassified('Cut'):
+            cons = int_inst_r.model().Cut[index]
+            int_inst_r.register_conshandler(cons.name, self.dummy2)
+
+        self.assertEqual(count, len(int_inst_l._classif['dummy2']))
+        self.assertEqual(count, int_inst_l.nconstraints()
+                                - int_inst_l.nunclassified())
+
+        for i in range(1):
+            int_inst.add_constraints('Cut', add_model.Cut,
+                                     {'Par': add_model.Par})
+
+        self.assertEqual(int_inst_r.nconstraints(), n_cons + 9)
+        self.assertEqual(int_inst_l.nconstraints(), n_cons + 15)
+        self.assertEqual(int_inst.nconstraints(), n_cons + 3)
+
+        # Check attributes again
+        self.assertEqual(len(int_inst_r._consmap.keys()), n_cons + 9)
+        self.assertEqual(len(int_inst_l._consmap.keys()), n_cons + 15)
+        self.assertEqual(len(int_inst._consmap.keys()), n_cons + 3)
+
+        for index in int_inst.unclassified('Cut'):
+            cons = int_inst.model().Cut[index]
+            int_inst.register_conshandler(cons.name, self.dummy2)
+
+        self.assertEqual(count, len(int_inst_l._classif['dummy2']))
+        self.assertEqual(count, int_inst_l.nconstraints()
+                                - int_inst_l.nunclassified())
+
+
+    def plugin_function_test(self):
+        """This test focuses on the correct implementation and the
+        reaction to bad uses of the functions that are relevant for the
+        plugins, i.e. add_constraints(...) and change_varbounds(...).
+        """
+        pass
+
+
 class QCQP(unittest.TestCase):
 
 
     def setUp(self):
+        """Generates the disease estimation model from the Pyomo book
+        and saves the resulting constructed ConcreteModel. Additionally
+        creates two dummy constraint handler.
+        """
         # Create an abstract model for a QCQP with linear objective
         model = AbstractModel()
 
@@ -240,10 +399,11 @@ class QCQP(unittest.TestCase):
         self.instance = instance
 
 
-class CrazyInstance(unittest.TestCase):
-
-
-    def setUp(self):
+    def plugin_function_test(self):
+        """This test focuses on the correct implementation and the
+        reaction to bad uses of the functions that are relevant for the
+        plugins, i.e. add_constraints(...) and change_varbounds(...).
+        """
         pass
 
 
