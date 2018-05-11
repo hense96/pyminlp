@@ -330,7 +330,81 @@ class DiseaseEstimation(unittest.TestCase):
         reaction to bad uses of the functions that are relevant for the
         plugins, i.e. add_constraints(...) and change_varbounds(...).
         """
-        pass
+        int_inst_base = Instance.create_instance(self.instance)
+
+        # Check change_varbounds(...) function using different types of
+        # variables.
+        int_inst = int_inst_base._clone()
+        simple = self.instance.alpha
+        indexed = self.instance.I
+        int_inst.change_varbounds(simple.name, 0, 1)
+        for v in indexed:
+            int_inst.change_varbounds(indexed[v].name, -1.0, 1.0)
+        self.assertEqual(int_inst.model().alpha.lb, 0.0)
+        self.assertEqual(int_inst.model().alpha.ub, 1.0)
+        for v in int_inst.model().I:
+            self.assertEqual(int_inst.model().I[v].lb, -1.0)
+            self.assertEqual(int_inst.model().I[v].ub, 1.0)
+
+        # Check false input for change_varbounds(...) function.
+        self.assertRaises(KeyError, int_inst.change_varbounds, ('novar'))
+        # The varbounds itself are arbitrary values. This is a Pyomo
+        # specification though, so I will not restrict it.
+
+        # Add different kinds of constraints and parameters.
+        int_inst = int_inst_base._clone()
+        add_model = ConcreteModel()
+        add_model.sset1 = Set(initialize=['a', 'b', 'c'])
+        add_model.sset2 = Set(initialize=['d', 'e', 'f'])
+        add_model.cset1 = Set(add_model.sset1, add_model.sset1,
+                              initialize={('a','a'):'a', ('b','b'):'b'})
+        add_model.cset2 = self.instance.S_SI * self.instance.S_SI
+        add_model.v = Var(add_model.sset2)
+
+        add_model.scons = Constraint(expr=add_model.v['d']
+                                          - add_model.v['e'] <= 0)
+
+        def simple_rule(model, i):
+            return add_model.v['d'] - add_model.v['e'] <= 0
+
+        def complex_rule(model, i, j):
+            return add_model.v['d'] - add_model.v['e'] <= 0
+
+        add_model.sindcons = Constraint(add_model.sset1, rule=simple_rule)
+        add_model.dindcons = Constraint(add_model.sset1, add_model.sset1,
+                                        rule=complex_rule)
+        # This is not possible in Pyomo.
+        #add_model.ccons1 = Constraint(add_model.cset1, rule=simple_rule)
+        add_model.ccons2 = Constraint(add_model.cset2, rule=complex_rule)
+
+        # Perform adding without parameters.
+        for i in range(3):
+            int_inst.add_constraints('scons', add_model.scons)
+            int_inst.add_constraints('sindcons', add_model.sindcons)
+            self.assertRaises(ValueError, int_inst.add_constraints,
+                              'dindcons', add_model.dindcons)
+            self.assertRaises(ValueError, int_inst.add_constraints,
+                              'ccons2', add_model.ccons2)
+
+        scons = int_inst.model().component('scons')
+        sindcons = int_inst.model().component('sindcons')
+
+        self.assertEqual(len(scons), 3)
+        self.assertEqual(len(sindcons), 9)
+
+        add_model.list = ConstraintList()
+        for v in scons:
+            add_model.list.add(scons[v].expr)
+        for v in sindcons:
+            add_model.list.add(sindcons[v].expr)
+
+        int_inst.add_constraints('list', add_model.list)
+
+        list = int_inst.model().component('list')
+        self.assertEqual(len(list), 12)
+
+        print('Some')
+
 
 
 class QCQP(unittest.TestCase):

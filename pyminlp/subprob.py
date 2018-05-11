@@ -65,7 +65,7 @@ class Instance:
         assert type(instance) is Instance
         if instance.nunclassified() > 0:
             raise ValueError('The instance {} has unclassified constraints and'
-                             'can therefore not be cloned.'.format(instance))
+                             ' can thus not be cloned.'.format(instance))
         # TODO maybe no model deepcopy for space efficiency.
         new_inst = instance._clone()
         return new_inst
@@ -211,6 +211,10 @@ class Instance:
         assert type(constype) is str
         assert type(params) is dict
         # TODO catch all cases of bad use
+        if constraints.index_set() is not {None}\
+            and hasattr(constraints.index_set(), 'set_tuple'):
+            raise ValueError('Index set of added constraints {} has a '
+                             'dimension greater than 1.'.format(constype))
         # Check if parameters and constraints already exist.
         component = self._model.component(constype)
         if component is None:
