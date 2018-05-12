@@ -5,6 +5,7 @@ import copy
 
 # TODO more precisely
 from pyomo.environ import *
+from pyomo.opt import SolverStatus, TerminationCondition
 
 from pyminlp.conshdlr import ConsHandler
 
@@ -29,6 +30,10 @@ class Instance:
                          dictionary is the constraint handler name.
         _consadd_count   Counts how often the add_constraints(...)
                          function is called (static).
+        _relax       A _Solution object representation of the relaxation
+                         of the optimisation problem. If None, the
+                         relaxation of the Instance object is not
+                         solved.
     """
 
     @classmethod
@@ -79,6 +84,7 @@ class Instance:
         self._model = None
         self._consmap = {}
         self._classif = {}
+        self._relax = None
 
     def _init(self, model):
         """Derives all attribute values from a given Pyomo model.
@@ -92,7 +98,8 @@ class Instance:
                                         index=c)
 
     def _clone(self):
-        """Clone function for an internal Instance object.
+        """Clone function for an internal Instance object. The
+        relaxation object does not get cloned.
         :return: A new internal Instance with copied data.
         """
         inst = Instance()
@@ -105,19 +112,26 @@ class Instance:
 
     def model(self):
         """Returns a Pyomo representation of the optimisation problem
-        represented by Instance object.
+        represented by Instance object. If the relaxation has already
+        been solved, the relaxation object will be returned. It contains
+        the same constraints (some may be deactivated) as well as
+        solution data.
         :return: A Pyomo ConcreteObject.
         """
-        # TODO maybe only return a copy
-        return self._model
+        # TODO maybe only return copies.
+        if self._relax is not None:
+            return self._relax
+        else:
+            return self._model
 
-    def relaxation(self):
-        """Returns a Pyomo representation of the relaxation of the
-        optimisation problem represented by this Instance object.
-        :return: A Pyomo ConcreteObject.
+    def relaxation_solved(self):
+        """Returns True if the relaxation of the current Instance object
+        has already been solved. If a manipulating function is called
+        (e.g. add_constraints) after solving the relaxation, this
+        function will return False.
+        :return: True if relaxation is solved, otherwise False.
         """
-        # TODO implement
-        pass
+        return self._relax is None
 
     def constypes(self):
         """Returns all constraint types in the model instance.
@@ -154,6 +168,39 @@ class Instance:
         """Returns the number of constraints without constraint handler.
         :return: Number of unclassified constraints."""
         return len(self.unclassified())
+
+    # Interface functions for solving process modules.
+
+    def solve_relaxation(self, solver):
+        # Firstly, create the relaxation.
+        relax = self._model.clone()
+        nonrel_cons = []
+        for c in self._consmap.keys():
+            cons = self._consmap[c]
+            py_cons = relax.component(cons.constype)[cons.index]
+            if cons.conshdlr.relax():
+                py_cons.activate()
+            else:
+                py_cons.deactivate()
+                nonrel_cons.append((cons, py_cons))
+        relax.preprocess()
+        # Secondly, solve the relaxation.
+        res = solver.solve(relax)
+        if res.solver.status != SolverStatus.ok:
+            # TODO more precisely.
+            raise Exception('Relaxation solver could not solve relaxation.')
+        term_cond = res.solver.termination_condition
+        self._relax = _Solution.create(model=relax,
+                                       termination_condition=term_cond)
+        # If there is a solution, find the violated constraints.
+        if term_cond == TerminationCondition.optimal:
+            for (cons, py_cons) in nonrel_cons:
+                # TODO include the epsilon.
+                # use value(cons.body)
+                if not value(py_cons.get_value()):
+                    self._relax.add_violated(cons)
+
+        print('Thanks.')
 
     # Interface functions for constraint handler plugins.
 
@@ -346,6 +393,8 @@ class Instance:
                             new_key[key.index(cons_key)] = index
                             new_param[tuple(new_key)] = given_param[key]
 
+        # Update other affected attributes.
+        self._relax = None
         Instance._consadd_count += 1
 
     def change_varbounds(self, varname, lower_bound=None, upper_bound=None):
@@ -367,6 +416,8 @@ class Instance:
             var.setlb(lower_bound)
         if upper_bound is not None:
             var.setub(upper_bound)
+        # Update other affected attributes.
+        self._relax = None
 
     def register_conshandler(self, constraint, conshdlr):
         """Assigns a constraint to a constraint handler.
@@ -569,3 +620,37 @@ class _Cons:
             ValueError('Constraint {} is already assigned to constraint'
                        ' handler {}.'.format(self.name, self.conshdlr.name()))
         self._conshdlr = conshdlr
+
+
+class _Solution:
+
+    @classmethod
+    def create(cls, model, termination_condition):
+        sol = _Solution()
+        sol._model = model
+        sol._term_cond = termination_condition
+        return sol
+
+    def __init__(self):
+        self._model = None
+        self._term_cond = None
+        self._violated = {}
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def termination_condition(self):
+        return self._term_cond
+
+    @property
+    def violated(self):
+        return self._violated
+
+    def add_violated(self, constraint):
+        key = constraint.conshdlr.name()
+        if key in self._violated.keys():
+            self._violated[key].append(constraint)
+        else:
+            self._violated[key] = [constraint]

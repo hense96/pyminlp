@@ -29,9 +29,9 @@ class PyMINLP:
         for hdlr in self._known_hdlrs:
             if hdlr.name() == name:
                 hdlr.set_relax(relax)
-                hdlr.set_reptypes(types)
+                hdlr.add_constypes(types)
                 hdlr.set_prio(prio)
-                heapq.heappush(self._used_hdlrs, (hdlr.get_prio(), hdlr))
+                heapq.heappush(self._used_hdlrs, (hdlr.prio(), hdlr))
                 break
 
     # Settings
@@ -53,7 +53,7 @@ class PyMINLP:
         for (_, hdlr) in self._used_hdlrs:
             set = {}
             model = instance.model()
-            for reptype in hdlr.get_reptypes():
+            for reptype in hdlr.constypes():
                 set[reptype] = instance.unclassified(reptype)
             self._cur_handler = hdlr
             hdlr.identify(set, model)
@@ -82,7 +82,7 @@ class PyMINLP:
         for (_, hdlr) in self._used_hdlrs:
             set = {}
             model = self._cur_instance.model()
-            for reptype in hdlr.get_reptypes():
+            for reptype in hdlr.constypes():
                 set[reptype] = self._cur_instance.unclassified(reptype)
             self._cur_handler = hdlr
             hdlr.identify(set, model)

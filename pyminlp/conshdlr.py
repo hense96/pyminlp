@@ -11,26 +11,26 @@ class ConsHandler:
         # Flag indicating whether constraints of this type should be
         # passed to the relaxation solver.
         self._relax = False
-        self._types = []
+        self._constypes = []
         self._prio = None
         self.solver = None
 
     def __lt__(self, other):
         return self.name() < other.name()
 
-    def get_relax(self):
+    def relax(self):
         return self._relax
 
     def set_relax(self, relax):
         self._relax = relax
 
-    def get_reptypes(self):
-        return self._types
+    def constypes(self):
+        return self._constypes
 
-    def set_reptypes(self, reptypes):
-        self._types.extend(reptypes)
+    def add_constypes(self, constypes):
+        self._constypes.extend(constypes)
 
-    def get_prio(self):
+    def prio(self):
         return self._prio
 
     def set_prio(self, prio):

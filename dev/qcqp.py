@@ -9,6 +9,8 @@ def foo(filename):
     # Create model instance first.
     model = createInstance(filename)
 
+    relax_solver = SolverFactory("cbc")
+
     # Set up solver.
     solver = PyMINLP()
     solver.use_constraint_handler(name='linear',
@@ -22,6 +24,12 @@ def foo(filename):
                                   prio=3, relax=False)
     solver.solve(model)
 
+    #plugin_simulation(model, solver)
+
+    solver._cur_instance.solve_relaxation(relax_solver)
+
+
+def plugin_simulation(model, solver):
     # Plugin simulation.
     hdlrs = solver._used_hdlrs
     for (_, hdlr) in hdlrs:
