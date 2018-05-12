@@ -383,8 +383,10 @@ class DiseaseEstimation(unittest.TestCase):
             int_inst.add_constraints('sindcons', add_model.sindcons)
             self.assertRaises(ValueError, int_inst.add_constraints,
                               'dindcons', add_model.dindcons)
+            int_inst._consadd_count += 1
             self.assertRaises(ValueError, int_inst.add_constraints,
                               'ccons2', add_model.ccons2)
+            int_inst._consadd_count += 1
 
         scons = int_inst.model().component('scons')
         sindcons = int_inst.model().component('sindcons')
@@ -403,8 +405,191 @@ class DiseaseEstimation(unittest.TestCase):
         list = int_inst.model().component('list')
         self.assertEqual(len(list), 12)
 
-        print('Some')
+        # Test different parameter types.
+        int_inst = int_inst_base._clone()
+        add_model.sset3 = Set(initialize=['g', 'h', 'i'])
 
+        def param_rule_1(model, i):
+            return 1
+
+        def param_rule_2(model, i, j):
+            return 1
+
+        def param_rule_3(model, i, j, k):
+            return 1
+
+        # sset1 is the constraint index set, if constraint is not
+        # a SimpleCons
+
+        add_model.s = Param(initialize=1)
+        add_model.in0_s = Param(add_model.sset2, rule=param_rule_1)
+        add_model.in0_m = Param(add_model.sset2, add_model.sset2,
+                                rule=param_rule_2)
+        add_model.in1_s = Param(add_model.sset1, rule=param_rule_1)
+        add_model.in1_m1 = Param(add_model.sset1, add_model.sset2,
+                                 rule=param_rule_2)
+        add_model.in1_m2 = Param(add_model.sset2, add_model.sset1,
+                                 rule=param_rule_2)
+        add_model.in2_s = Param(add_model.sset1, add_model.sset1,
+                                rule=param_rule_2)
+        add_model.in2_m = Param(add_model.sset2, add_model.sset1,
+                                add_model.sset1, rule=param_rule_3)
+
+        for i in range(3):
+            int_inst.add_constraints('scons', add_model.scons,
+                                     {'s': add_model.s,
+                                      'in0_s': add_model.in0_s,
+                                      'in0_m': add_model.in0_m})
+
+        # implement checks here
+        s = int_inst.model().s
+        in0_s = int_inst.model().in0_s
+        in0_m = int_inst.model().in0_m
+        self.assertEqual(len(s), 3)
+        self.assertEqual(s.index_set().name, '_scons_Set')
+        self.assertEqual(len(in0_s.index_set().set_tuple), 2)
+        self.assertEqual(in0_s.index_set().set_tuple[0].name, '_scons_Set')
+        self.assertEqual(len(in0_m.index_set().set_tuple), 3)
+        self.assertEqual(in0_m.index_set().set_tuple[0].name, '_scons_Set')
+        self.assertEqual(len(int_inst.model()._scons_Set), 3)
+
+        int_inst = int_inst_base._clone()
+
+        # TODO make more precise so that it actually works
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in2_s': add_model.in2_s})
+
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in2_m': add_model.in2_m})
+
+        for i in range(3):
+            int_inst.add_constraints('sindcons', add_model.sindcons,
+                                     {'s': add_model.s,
+                                      'in0_s': add_model.in0_s,
+                                      'in0_m': add_model.in0_m,
+                                      'in1_s': add_model.in1_s,
+                                      'in1_m1': add_model.in1_m1,
+                                      'in1_m2': add_model.in1_m2})
+
+        # implement checks here
+        s = int_inst.model().s
+        in0_s = int_inst.model().in0_s
+        in0_m = int_inst.model().in0_m
+        in1_s = int_inst.model().in1_s
+        in1_m1 = int_inst.model().in1_m1
+        in1_m2 = int_inst.model().in1_m2
+        self.assertEqual(len(s), 9)
+        self.assertEqual(s.index_set().name, '_sindcons_Set')
+        self.assertEqual(len(in0_s.index_set().set_tuple), 2)
+        self.assertEqual(in0_s.index_set().set_tuple[0].name, '_sindcons_Set')
+        self.assertEqual(len(in0_m.index_set().set_tuple), 3)
+        self.assertEqual(in0_m.index_set().set_tuple[0].name, '_sindcons_Set')
+        self.assertEqual(len(int_inst.model()._sindcons_Set), 9)
+
+        self.assertEqual(len(in1_s), 9)
+        self.assertEqual(in1_s.index_set().name, '_sindcons_Set')
+        self.assertEqual(len(in1_m1.index_set().set_tuple), 2)
+        self.assertEqual(in1_m1.index_set().set_tuple[0].name, '_sindcons_Set')
+        self.assertEqual(len(in1_m2.index_set().set_tuple), 2)
+        self.assertEqual(in1_m2.index_set().set_tuple[1].name, '_sindcons_Set')
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_s': add_model.s})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_m': add_model.s})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m1': add_model.s})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m2': add_model.s})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'s': add_model.in0_s})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_m': add_model.in0_s})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_s': add_model.in0_s})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m2': add_model.in0_s})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'s': add_model.in0_m})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_s': add_model.in0_m})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_s': add_model.in0_m})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m1': add_model.in0_m})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m2': add_model.in0_m})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_s': add_model.in1_s})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_m': add_model.in1_s})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m1': add_model.in1_s})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_m2': add_model.in1_s})
+
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'s': add_model.in1_m2})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_s': add_model.in1_m2})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in0_m': add_model.in1_m2})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_s': add_model.in1_m2})
+        Instance._consadd_count += 1
+        self.assertRaises(ValueError, int_inst.add_constraints,
+                          'sindcons', add_model.sindcons,
+                          {'in1_s': add_model.in1_m2})
 
 
 class QCQP(unittest.TestCase):

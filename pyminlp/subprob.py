@@ -209,6 +209,7 @@ class Instance:
 
         """
         assert type(constype) is str
+        assert isinstance(constraints, Constraint)
         assert type(params) is dict
         # TODO catch all cases of bad use
         if constraints.index_set() is not {None}\
@@ -218,6 +219,21 @@ class Instance:
         # Check if parameters and constraints already exist.
         component = self._model.component(constype)
         if component is None:
+            # Sanity check: constraint index set appears at most once
+            # in any parameter index set.
+            if constraints.index_set() is not {None}:
+                cons_set = constraints.index_set()
+                for p in params:
+                    param_index = params[p].index_set()
+                    if param_index is not {None}\
+                        and hasattr(param_index, 'set_tuple'):
+                        param_index = param_index.set_tuple
+                        if param_index.count(cons_set) > 1:
+                            raise ValueError('Parameter {} contains the index'
+                                             ' set {} of the added constraints'
+                                             ' more than once.'.format(p,
+                                                                cons_set.name))
+            # Add components.
             self._add_components(constype, constraints.index_set(), params)
             component = self._model.component(constype)
 
@@ -241,11 +257,55 @@ class Instance:
 
         # Deal with parameters.
         for p in params.keys():
+            # Sanity check. Do the index sets of the added parameters
+            # match the index sets of the existing parameters=
+            add_index = params[p].index_set()
+            if add_index == {None}:
+                add_index = []
+            elif hasattr(add_index, 'set_tuple'):
+                add_index = add_index.set_tuple
+            else:
+                add_index = [add_index]
+            ex_index = self.model().component(p).index_set()
+            if ex_index == {None}:
+                ex_index = []
+            elif hasattr(ex_index, 'set_tuple'):
+                ex_index = ex_index.set_tuple
+            else:
+                ex_index = [ex_index]
+            cons_set_count = add_index.count(constraints.index_set())
+            if cons_set_count == 0:
+                try:
+                    if len(add_index) + 1 != len(ex_index):
+                        raise ValueError
+                    for i in range(len(add_index)):
+                        if add_index[i] != ex_index[i+1]:
+                            raise ValueError
+                except ValueError:
+                    raise ValueError('The index set of the parameter '
+                                     '{} does not match the existing'
+                                     'parameters with this name.'.format(p))
+            elif cons_set_count == 1:
+                try:
+                    if len(add_index) != len(ex_index):
+                        raise ValueError
+                    for i in range(len(add_index)):
+                        if add_index[i] != ex_index[i]\
+                           and add_index[i] != constraints.index_set():
+                            raise ValueError
+                except ValueError:
+                    raise ValueError('The index set of the parameter '
+                                     '{} does not match the existing'
+                                     'parameters with this name.'.format(p))
+            else:
+                raise ValueError('Parameter {} contains the index set '
+                                 '{} of the added constraints more than'
+                                 ' once.'.format(p, cons_set.name))
+            # Now, add the parameters.
             new_param = self._model.component(p)
             given_param = params[p]
             # Case: single given parameter. Add parameter for every
             # index of the new constraints.
-            # TODO test the case.
             if given_param.index_set() == {None}:
                 for el in set:
                     new_param[el] = given_param.value
