@@ -171,6 +171,20 @@ class Instance:
 
     # Interface functions for solving process modules.
 
+    def feasible(self):
+        assert self.relaxation_solved()
+        return self._relax.nviolated() == 0
+
+    def objective_function_value(self):
+        assert self.relaxation_solved()
+        obj = self._model.component_objects(Objective)
+        return value(obj)
+
+    def has_optimal_solution(self):
+        assert self.relaxation_solved()
+        return self._relax.termination_condition\
+            == TerminationCondition.optimal
+
     def solve_relaxation(self, solver):
         # Firstly, create the relaxation.
         relax = self._model.clone()
@@ -199,8 +213,6 @@ class Instance:
                 # use value(cons.body)
                 if not value(py_cons.get_value()):
                     self._relax.add_violated(cons)
-
-        print('Thanks.')
 
     # Interface functions for constraint handler plugins.
 
@@ -635,6 +647,7 @@ class _Solution:
         self._model = None
         self._term_cond = None
         self._violated = {}
+        self._nviolated = 0
 
     @property
     def model(self):
@@ -654,3 +667,8 @@ class _Solution:
             self._violated[key].append(constraint)
         else:
             self._violated[key] = [constraint]
+        self._nviolated += 1
+
+    @property
+    def nviolated(self):
+        return self._nviolated
