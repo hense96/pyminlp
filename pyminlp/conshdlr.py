@@ -51,7 +51,7 @@ class ConsHandler:
         raise NotImplementedError('Identify method of {} handler not '
                                   'implemented!'.format(name))
 
-    def separate(self, sets, model, add_model):
+    def separate(self, sets, model):
         """Implements a strategy to add underestimators for the given
         constraints."""
         name = self.name()
@@ -69,4 +69,10 @@ class ConsHandler:
         from the constraints."""
         name = self.name()
         raise NotImplementedError('Tighten method of {} handler not '
+                                  'implemented!'.format(name))
+
+    def enforce(self, sets, model):
+        """Implements a strategy for enforcing violated constraints."""
+        name = self.name()
+        raise NotImplementedError('Enforce method of {} handler not '
                                   'implemented!'.format(name))

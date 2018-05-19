@@ -9,6 +9,8 @@ from pyomo.opt import SolverStatus, TerminationCondition
 
 from pyminlp.conshdlr import ConsHandler
 
+from pyomo.core.base.var import _GeneralVarData
+
 
 class Instance:
     """
@@ -30,16 +32,19 @@ class Instance:
                          dictionary is the constraint handler name.
         _consadd_count   Counts how often the add_constraints(...)
                          function is called (static).
-        _relax       A _Solution object representation of the relaxation
-                         of the optimisation problem. If None, the
-                         relaxation of the Instance object is not
-                         solved.
+        _relax       A _Solution object representation of the solved
+                         relaxation of the optimisation problem. If
+                         None, the relaxation of the current Instance
+                         object is not solved. Note that this will also
+                         be the case whenever the Instance object gets
+                         changed.
     """
 
     @classmethod
     def create_instance(cls, py_model):
         """Factory method. Generates and returns a new internal
-        instance from a Pyomo concrete model object.
+        Instance from a Pyomo ConcreteModel object. The given model is
+        used in the Instance without being copied.
 
         :param py_model: A ConcreteModel containing an instance from
         Pyomo.
@@ -80,7 +85,8 @@ class Instance:
 
     def __init__(self):
         """Declares all attributes of an instance. See above for
-        attribute description."""
+        attribute description.
+        """
         self._model = None
         self._consmap = {}
         self._classif = {}
@@ -112,17 +118,21 @@ class Instance:
 
     def model(self):
         """Returns a Pyomo representation of the optimisation problem
-        represented by Instance object. If the relaxation has already
-        been solved, the relaxation object will be returned. It contains
-        the same constraints (some may be deactivated) as well as
-        solution data.
-        :return: A Pyomo ConcreteObject.
+        represented by Instance object.
+        :return: A Pyomo ConcreteModel.
         """
         # TODO maybe only return copies.
-        if self._relax is not None:
-            return self._relax
-        else:
-            return self._model
+        return self._model
+
+    def relax_model(self):
+        """Returns a Pyomo representation of the solved relaxation of
+        the instance.  It contains the same constraints (non-relaxation)
+        constraints are deactivated as well as solution data.
+        Precondition: The relaxation of the instance is solved.
+        :return: A Pyomo ConcreteModel with solution data.
+        """
+        assert self.relaxation_solved()
+        return self._relax.model
 
     def relaxation_solved(self):
         """Returns True if the relaxation of the current Instance object
@@ -131,7 +141,7 @@ class Instance:
         function will return False.
         :return: True if relaxation is solved, otherwise False.
         """
-        return self._relax is None
+        return self._relax is not None
 
     def constypes(self):
         """Returns all constraint types in the model instance.
@@ -161,34 +171,102 @@ class Instance:
 
     def nconstraints(self):
         """Returns the number of constraints this instance has.
-        :return: Number of constraints (int)."""
+        :return: Number of constraints (int).
+        """
         return len(self._consmap.keys())
 
     def nunclassified(self):
         """Returns the number of constraints without constraint handler.
-        :return: Number of unclassified constraints."""
+        :return: Number of unclassified constraints.
+        """
         return len(self.unclassified())
 
     # Interface functions for solving process modules.
 
     def feasible(self):
+        """Returns True if the solution of the relaxation of the
+        instance is feasible for the instance.
+        Precondition: The relaxation of the instance is solved.
+        :return: True or False.
+        """
         assert self.relaxation_solved()
-        return self._relax.nviolated() == 0
-
-    def objective_function_value(self):
-        assert self.relaxation_solved()
-        obj = self._model.component_objects(Objective)
-        return value(obj)
+        return self._relax.nviolated == 0
 
     def has_optimal_solution(self):
+        """Returns True if the relaxation of the instance has an optimal
+        solution, i.e. the relaxation is neither infeasible nor
+        unbounded.
+        Precondition: The relaxation of the instance is solved.
+        :return: True or False.
+        """
         assert self.relaxation_solved()
         return self._relax.termination_condition\
             == TerminationCondition.optimal
 
+    def objective_function_value(self):
+        """Returns the optimal objective function value of the solved
+        relaxation of the instance.
+        Precondition: The relaxation of the instance is solved.
+        :return: An objective function value.
+        """
+        assert self.relaxation_solved()
+        obj = self._relax.model.component_objects(Objective)
+        for o in obj:
+            return value(o)
+
+    def violated_sets(self, conshandler):
+        """Returns the sets of indices of the constraints that are
+        violated by the solution of the relaxation of the instance.
+        The sets (represented by lists) are saved as the values of a
+        dict, where the keys is the resepctive constraint type of the
+        constraint.
+        Only constraints that belong to the given constraint handler are
+        considered. If the constraint handler considers a constraint
+        type, for which no constraint is violated, an empty list will be
+        in the return dict.
+
+        Example for t a return value:
+            {'Constype1':['index1, index2'], 'Constype2':[]}
+
+        Precondition: The relaxation of the instance is solved.
+
+        :param conshandler: A constraint handler object indicating which
+        constraints to consider.
+        :return: A dict.
+        """
+        assert self.relaxation_solved()
+        if conshandler.name() not in self._relax.violated.keys():
+            return {}
+        else:
+            conss = self._relax.violated[conshandler.name()]
+            sets = {}
+            for constype in conshandler.constypes():
+                sets[constype] = []
+            for cons in conss:
+                sets[cons.constype].append(cons.index)
+        return sets
+
+    def nviolated(self, conshandler):
+        """Returns the number of violated constraints that are assigned
+        to the given constraint handler.
+        Precondition: The relaxation of the instance is solved.
+        :param conshandler: A constraint handler object.
+        :return: A number (int).
+        """
+        assert self.relaxation_solved()
+        if conshandler.name() not in self._relax.violated.keys():
+            return 0
+        else:
+            return len(self._relax.violated[conshandler.name()])
+
     def solve_relaxation(self, solver):
+        """Creates and solves the relaxation of the instance.
+        :param solver: The relaxation solver.
+        """
         # Firstly, create the relaxation.
         relax = self._model.clone()
         nonrel_cons = []
+        # Deactivate non-relaxation constraints and remember them.
         for c in self._consmap.keys():
             cons = self._consmap[c]
             py_cons = relax.component(cons.constype)[cons.index]
@@ -210,7 +288,10 @@ class Instance:
         if term_cond == TerminationCondition.optimal:
             for (cons, py_cons) in nonrel_cons:
                 # TODO include the epsilon.
-                # use value(cons.body)
+                # use value(py_cons.body)
+                # Catch weird special case.
+                if py_cons.upper is None and py_cons.lower is None:
+                    continue
                 if not value(py_cons.get_value()):
                     self._relax.add_violated(cons)
 
@@ -308,7 +389,10 @@ class Instance:
             index = '_{}_{}'.format(Instance._consadd_count, el)
             # Add constraint to instance.
             set.add(index)
-            component.add(index, cons.expr)
+            # In the constraint expression, Replace the variable objects
+            # of the user copy of the model by the actual variables.
+            expr = self._transform_expr(cons.expr)
+            component.add(index, expr)
             new_cons = component[index]
             # Add internal constraint representation.
             self._create_constraint(constraint=new_cons,
@@ -317,7 +401,7 @@ class Instance:
         # Deal with parameters.
         for p in params.keys():
             # Sanity check. Do the index sets of the added parameters
-            # match the index sets of the existing parameters=
+            # match the index sets of the existing parameters.
             add_index = params[p].index_set()
             if add_index == {None}:
                 add_index = []
@@ -360,7 +444,7 @@ class Instance:
                 raise ValueError('Parameter {} contains the index set '
                                  '{} of the added constraints more than'
                                  ' once.'.format(p, cons_set.name))
-            # Now, add the parameters.
+            # Now, add the parameter values.
             new_param = self._model.component(p)
             given_param = params[p]
             # Case: single given parameter. Add parameter for every
@@ -369,10 +453,10 @@ class Instance:
                 for el in set:
                     new_param[el] = given_param.value
             # Case: Single parameter with other indices.
-            elif (given_param.index_set().dim() == 1
+            elif (not hasattr(given_param.index_set(), 'set_tuple')
                       and constraints.index_set()
                       != given_param.index_set()) \
-                  or (given_param.index_set().dim() > 1 and
+                  or (hasattr(given_param.index_set(), 'set_tuple') and
                       constraints.index_set()
                       not in given_param.index_set().set_tuple):
                 for key in given_param:
@@ -383,7 +467,8 @@ class Instance:
                         index = '_{}_{}'.format(Instance._consadd_count,
                                         cons_key)
                         # Write to new parameter with replaced set.
-                        new_key = list(copy.deepcopy(key))
+                        new_key = list([key]) if type(key) is str \
+                            else list(copy.deepcopy(key))
                         new_key.insert(0, index)
                         new_param[tuple(new_key)] = given_param[key]
             # Case: constraint index set is in parameter index set.
@@ -475,7 +560,6 @@ class Instance:
             new_index_set = params[p].index_set()
             if not new_index_set == {None} \
                     and not cons_index_set is new_index_set:
-                # TODO handle this case
                 if new_index_set.dimen == 1:
                     # Case: the index set has one set that is not the
                     # constraint set.
@@ -486,7 +570,6 @@ class Instance:
                     new_index_set = list(new_index_set.set_tuple)
                     new_index_set[
                         new_index_set.index(cons_index_set)] = set
-                # TODO handle this case
                 else:
                     # Case: the index set has multiple sets, but none of
                     # them is the constraint index set
@@ -526,6 +609,30 @@ class Instance:
                     return vartype[v]
         return None
 
+    def _transform_expr(self, expr):
+        """Replaces the variable objects of the given expression by the
+        variable objects of the given model. The names of the variables
+        in the expression have to appear in the model.
+        :param expr: An Expression object.
+        :param model: A Pyomo concrete object
+        :return: The modified Expression object.
+        """
+        # TODO This implementation is a workaround. Use proper functions
+        # TODO when Pyomo 5.6 is released.
+        model = self._model
+        for i in range(len(expr._args)):
+            arg = expr._args[i]
+            if hasattr(arg, '_args'):
+                self._transform_expr(arg, model)
+            else:
+                if isinstance(arg, _GeneralVarData):
+                    # Find new var object.
+                    name, index = arg.name.split('[')
+                    index = index[:-1]
+                    new_var = model.component(name)[index]
+                    expr._args[i] = new_var
+        return expr
+
 
 class _Cons:
     """
@@ -558,7 +665,7 @@ class _Cons:
 
     @classmethod
     def create(cls, pyrep, name, constype, index):
-        """Factory method to generate a new constraint. Parameters as
+        """Factory method to generate a new _Cons object. Parameters as
         described above.
         """
         assert type(name) is str
@@ -635,15 +742,38 @@ class _Cons:
 
 
 class _Solution:
+    """
+    This internal class stores all relevant data of a relaxation
+    solution, i.e. the underlying relaxation model holding solution data
+    as well as some additional data.
+
+    Use the factory method _Solution.create(...) for generating a new
+    instance.
+
+    Public class attributes:
+        model     The Pyomo ConcreteModel representing the relaxation.
+                      It holds the solution data.
+        termination_condition
+                  The termination condition of the solver. It is a
+                      Pyomo TerminationCondition object.
+        violated  The dictionary of violated constraints. The values are
+                      lists of internal _Cons objects, while the key
+                      is the names of the respective constraint handler.
+        nviolated The total number of violated constraints.
+    """
 
     @classmethod
     def create(cls, model, termination_condition):
+        """Factory method to generate a new _Solution object. Parameters
+        as described above.
+        """
         sol = _Solution()
         sol._model = model
         sol._term_cond = termination_condition
         return sol
 
     def __init__(self):
+        """Constructor setting attributes to None."""
         self._model = None
         self._term_cond = None
         self._violated = {}
@@ -651,24 +781,37 @@ class _Solution:
 
     @property
     def model(self):
+        """Access the Pyomo representation of the solution."""
         return self._model
 
     @property
     def termination_condition(self):
+        """Access the Pyomo representation of the solution."""
         return self._term_cond
 
     @property
     def violated(self):
+        """Returns the dictionary of violated constraints. The values
+        are lists of internal _Cons objects, while the key is the names
+        of the respective constraint handler. If a constraint handler
+        does not have any violated constraints, its name will not
+        appear in the dictionary.
+        """
         return self._violated
 
+    @property
+    def nviolated(self):
+        """Access the total number of violated constraints."""
+        return self._nviolated
+
     def add_violated(self, constraint):
+        """Add a violated constraint to the list.
+        :param constraint: An internal _Cons object.
+        """
+        assert type(constraint) is _Cons
         key = constraint.conshdlr.name()
         if key in self._violated.keys():
             self._violated[key].append(constraint)
         else:
             self._violated[key] = [constraint]
         self._nviolated += 1
-
-    @property
-    def nviolated(self):
-        return self._nviolated

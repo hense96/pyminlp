@@ -455,7 +455,6 @@ class DiseaseEstimation(unittest.TestCase):
 
         int_inst = int_inst_base._clone()
 
-        # TODO make more precise so that it actually works
         self.assertRaises(ValueError, int_inst.add_constraints,
                           'sindcons', add_model.sindcons,
                           {'in2_s': add_model.in2_s})
@@ -473,6 +472,9 @@ class DiseaseEstimation(unittest.TestCase):
                                       'in1_m1': add_model.in1_m1,
                                       'in1_m2': add_model.in1_m2})
 
+        consadd_count = int_inst._consadd_count
+        index = '_{}_b'.format(consadd_count - 2)
+
         # implement checks here
         s = int_inst.model().s
         in0_s = int_inst.model().in0_s
@@ -483,17 +485,23 @@ class DiseaseEstimation(unittest.TestCase):
         self.assertEqual(len(s), 9)
         self.assertEqual(s.index_set().name, '_sindcons_Set')
         self.assertEqual(len(in0_s.index_set().set_tuple), 2)
+        self.assertEqual(s[index], 1)
         self.assertEqual(in0_s.index_set().set_tuple[0].name, '_sindcons_Set')
         self.assertEqual(len(in0_m.index_set().set_tuple), 3)
+        self.assertEqual(in0_s[index, 'e'], 1)
         self.assertEqual(in0_m.index_set().set_tuple[0].name, '_sindcons_Set')
         self.assertEqual(len(int_inst.model()._sindcons_Set), 9)
+        self.assertEqual(in0_m[index, 'e', 'f'], 1)
 
         self.assertEqual(len(in1_s), 9)
         self.assertEqual(in1_s.index_set().name, '_sindcons_Set')
+        self.assertEqual(in1_s[index], 1)
         self.assertEqual(len(in1_m1.index_set().set_tuple), 2)
         self.assertEqual(in1_m1.index_set().set_tuple[0].name, '_sindcons_Set')
+        self.assertEqual(in1_m1[index, 'e'], 1)
         self.assertEqual(len(in1_m2.index_set().set_tuple), 2)
         self.assertEqual(in1_m2.index_set().set_tuple[1].name, '_sindcons_Set')
+        self.assertEqual(in1_m2['e', index], 1)
 
         Instance._consadd_count += 1
         self.assertRaises(ValueError, int_inst.add_constraints,

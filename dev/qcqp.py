@@ -9,12 +9,11 @@ def foo(filename):
     # Create model instance first.
     model = createInstance(filename)
 
-    relax_solver = SolverFactory("cbc")
-
     # Set up solver.
     solver = PyMINLP()
+
     solver.use_constraint_handler(name='linear',
-                                  types=['Quadcons1', 'Quadcons2', 'Cuts'],
+                                  types=['Quadcons1', 'Quadcons2', 'Cut'],
                                   prio=1, relax=True)
     solver.use_constraint_handler(name='quadconv',
                                   types=['Quadcons1', 'Quadcons2'],
@@ -22,11 +21,12 @@ def foo(filename):
     solver.use_constraint_handler(name='quadnonc',
                                   types=['Quadcons1', 'Quadcons2'],
                                   prio=3, relax=False)
+
+    relax_solver = SolverFactory('glpk')
+    solver.set_relaxation_solver(relax_solver)
+
     solver.solve(model)
 
-    #plugin_simulation(model, solver)
-
-    solver._cur_instance.solve_relaxation(relax_solver)
 
 
 def plugin_simulation(model, solver):
@@ -56,7 +56,7 @@ def createInstance( filename ):
     instance.
     """
 
-    # Create an abstract model for a QCQP with linear objective
+    # Abstract model
     model = AbstractModel()
 
     # Sets

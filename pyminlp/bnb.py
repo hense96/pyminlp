@@ -1,7 +1,5 @@
 import numpy as np
 
-from pyminlp.hub import Coordinator
-
 
 
 class BranchAndBound:
@@ -68,15 +66,14 @@ class BranchAndBound:
                     else:
                         # Tighten relaxation, bounds or perform
                         # branching.
-                        self._interface.enforce()
+                        self._interface.enforce(node.instance)
                         if node.branched:
                             node_done = True
 
-        return best_node, open_nodes
+        return best_node.instance
 
     def register_instance(self, instance):
         self._root_node = _Node.create_node(instance)
-        pass
 
     def branching(self, child_instance_list):
         self._cur_node.set_branched()
@@ -86,7 +83,7 @@ class BranchAndBound:
 
     def relaxation_solved(self):
         node = self._cur_node
-        if node.has_solution():
+        if node.has_optimal_solution():
             node.set_lower_bound(node.rel_sol_value())
 
 
