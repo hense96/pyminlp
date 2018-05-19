@@ -1,3 +1,5 @@
+# This module
+
 
 import heapq
 
@@ -131,5 +133,5 @@ class Coordinator:
         self._bnb_tree = BranchAndBound.create(self)
         self._bnb_tree.register_instance(instance)
         # Start solving process.
-        sol_instance = self._bnb_tree.execute()
-        print(sol_instance.relax_model())
+        self._bnb_tree.execute()
+        print('Done')

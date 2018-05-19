@@ -1,10 +1,6 @@
-# This is a dummy file for the interface. It provides a hopefully
-# complete list of the needed interface functions for problem
-# specification, option setting and plugins. The functions may be
-# moved to a different location later.
+# This module is the interface module for the user.
+# It checks the input format and passes the information to the hub.
 
-
-import heapq
 
 from pyminlp.plugins.quad import *
 from pyminlp.hub import Coordinator
@@ -23,7 +19,14 @@ class PyMINLP:
             hdlr.solver = self
         self._used_hdlrs = []
 
-    # Set up
+    # Functions for the set up.
+
+    def set_relaxation_solver(self, relaxation_solver):
+        # TODO maybe change so that only name required.
+        self._coordinator.register_relaxation_solver(relaxation_solver)
+
+    def set_epsilon(self, epsilon):
+        pass
 
     def use_constraint_handler(self, name, types, prio, relax=False):
         for hdlr in self._known_hdlrs:
@@ -34,20 +37,12 @@ class PyMINLP:
                 self._coordinator.add_conshandler(hdlr)
                 break
 
-    # Settings
+    # Functions for solving.
 
-    def set_relaxation_solver(self, relaxation_solver):
-        # TODO maybe change so that only name required.
-        self._coordinator.register_relaxation_solver(relaxation_solver)
-
-    def set_epsilon(self, epsilon):
-        pass
-
-    # Solve
     def solve(self, py_model):
         self._coordinator.solve(py_model)
 
-    # Plugin function library
+    # Functions for implementing plugins.
 
     def add_constraints(self, constype, constraints, params={}):
         # TODO do some input format checking (not logically, format).
