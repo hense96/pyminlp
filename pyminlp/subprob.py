@@ -7,7 +7,7 @@ import copy
 from pyomo.environ import *
 from pyomo.opt import SolverStatus, TerminationCondition
 
-from pyminlp.conshdlr import ConsHandler
+from pyminlp.conshdlr import ConsHandlerManager
 
 from pyomo.core.base.var import _GeneralVarData
 
@@ -151,6 +151,30 @@ class Instance:
             list.append(cons.name)
         return list
 
+    def conshandler_sets(self, conshandler):
+        """Returns the sets of indices of the constraints that are
+        belong to the given constraint handler.
+        The sets (represented by lists) are saved as the values of a
+        dict, where the keys is the resepctive constraint type of the
+        constraint.
+        If the constraint handler considers a constraint type, for
+        which no constraint exists, an empty list will be in the return
+        dict.
+
+        Example for a return value:
+            {'Constype1':['index1, index2'], 'Constype2':[]}
+        """
+        if conshandler.name() in self._classif.keys():
+            conss = self._classif[conshandler.name()]
+        else:
+            conss = []
+        sets = {}
+        for constype in conshandler.constypes():
+            sets[constype] = []
+        for cons in conss:
+            sets[cons.constype].append(cons.index)
+        return sets
+
     def unclassified(self, constype=None):
         """Returns the index set of all yet unclassified constraints,
         i.e. all constraints that do not belong to a constraint handler
@@ -186,10 +210,12 @@ class Instance:
     def feasible(self):
         """Returns True if the solution of the relaxation of the
         instance is feasible for the instance.
-        Precondition: The relaxation of the instance is solved.
+        Precondition: The relaxation of the instance is solved and
+        has optimal solution.
         :return: True or False.
         """
         assert self.relaxation_solved()
+        assert self.has_optimal_solution()
         return self._relax.nviolated == 0
 
     def has_optimal_solution(self):
@@ -203,13 +229,29 @@ class Instance:
         return self._relax.termination_condition\
             == TerminationCondition.optimal
 
+    def relax_infeasible(self):
+        """Returns True if the relaxation of the instance is infeasible.
+        Precondition: The relaxation of the instance is solved.
+        :return: True or False
+        """
+        assert self.relaxation_solved()
+        return self._relax.termination_condition\
+            == TerminationCondition.infeasible
+
+    def relax_termination_condition(self):
+        """Returns the TerminationConidtion of the relaxation solver."""
+        assert self.relaxation_solved()
+        return self._relax.termination_condition
+
     def objective_function_value(self):
         """Returns the optimal objective function value of the solved
         relaxation of the instance.
-        Precondition: The relaxation of the instance is solved.
+        Precondition: The relaxation of the instance is solved and
+        has optimal solution.
         :return: An objective function value.
         """
         assert self.relaxation_solved()
+        assert self.has_optimal_solution()
         obj = self._relax.model.component_objects(Objective)
         for o in obj:
             return value(o)
@@ -225,16 +267,18 @@ class Instance:
         type, for which no constraint is violated, an empty list will be
         in the return dict.
 
-        Example for t a return value:
+        Example for a return value:
             {'Constype1':['index1, index2'], 'Constype2':[]}
 
-        Precondition: The relaxation of the instance is solved.
+        Precondition: The relaxation of the instance is solved and has
+        optimal solution.
 
-        :param conshandler: A constraint handler object indicating which
-        constraints to consider.
+        :param conshandler: A constraint handler manager object
+        indicating which constraints to consider.
         :return: A dict.
         """
         assert self.relaxation_solved()
+        assert self.has_optimal_solution()
         if conshandler.name() not in self._relax.violated.keys():
             return {}
         else:
@@ -254,14 +298,17 @@ class Instance:
         :return: A number (int).
         """
         assert self.relaxation_solved()
+        assert self.has_optimal_solution()
         if conshandler.name() not in self._relax.violated.keys():
             return 0
         else:
             return len(self._relax.violated[conshandler.name()])
 
-    def solve_relaxation(self, solver):
+    def solve_relaxation(self, solver, epsilon=None):
         """Creates and solves the relaxation of the instance.
         :param solver: The relaxation solver.
+        :param epsilon: The epsilon for determining whether a constraint
+        is violated.
         """
         # Firstly, create the relaxation.
         relax = self._model.clone()
@@ -287,12 +334,19 @@ class Instance:
         # If there is a solution, find the violated constraints.
         if term_cond == TerminationCondition.optimal:
             for (cons, py_cons) in nonrel_cons:
-                # TODO include the epsilon.
-                # use value(py_cons.body)
                 # Catch weird special case.
                 if py_cons.upper is None and py_cons.lower is None:
                     continue
-                if not value(py_cons.get_value()):
+                # Check whether a constraint is within the tolerance.
+                if epsilon is None:
+                    if not value(py_cons.get_value()):
+                        self._relax.add_violated(cons)
+                elif (py_cons.lower is not None
+                       and not py_cons.lower - epsilon <= value(py_cons.body))\
+                   or (py_cons.upper is not None
+                       and not value(py_cons.body) <= py_cons.upper + epsilon):
+                    # TODO maybe consider special cases such as strict
+                    # TODO constraints or non-numerical bounds?
                     self._relax.add_violated(cons)
 
     # Interface functions for constraint handler plugins.
@@ -523,7 +577,7 @@ class Instance:
         :param conshdlr: The constraint handler object.
         """
         assert type(constraint) is str
-        assert isinstance(conshdlr, ConsHandler)
+        assert isinstance(conshdlr, ConsHandlerManager)
         try:
             in_cons = self._consmap[constraint]
         except KeyError:
@@ -623,7 +677,7 @@ class Instance:
         for i in range(len(expr._args)):
             arg = expr._args[i]
             if hasattr(arg, '_args'):
-                self._transform_expr(arg, model)
+                self._transform_expr(arg)
             else:
                 if isinstance(arg, _GeneralVarData):
                     # Find new var object.
@@ -734,7 +788,7 @@ class _Cons:
         """Manipulate the constraint's constraint handler.
         One may only set the constraint handler once.
         """
-        assert isinstance(conshdlr, ConsHandler)
+        assert isinstance(conshdlr, ConsHandlerManager)
         if self._conshdlr is not None:
             ValueError('Constraint {} is already assigned to constraint'
                        ' handler {}.'.format(self.name, self.conshdlr.name()))

@@ -14,16 +14,17 @@ def foo(filename):
 
     solver.use_constraint_handler(name='linear',
                                   types=['Quadcons1', 'Quadcons2', 'Cut'],
-                                  prio=1, relax=True)
+                                  identify_prio=1, relax=True)
     solver.use_constraint_handler(name='quadconv',
                                   types=['Quadcons1', 'Quadcons2'],
-                                  prio=2, relax=False)
+                                  identify_prio=2, relax=False)
     solver.use_constraint_handler(name='quadnonc',
                                   types=['Quadcons1', 'Quadcons2'],
-                                  prio=3, relax=False)
+                                  identify_prio=3, relax=False)
 
     relax_solver = SolverFactory('glpk')
     solver.set_relaxation_solver(relax_solver)
+    solver.set_epsilon(0.0001)
 
     solver.solve(model)
 

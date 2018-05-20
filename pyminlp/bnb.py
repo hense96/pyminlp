@@ -4,8 +4,8 @@
 
 
 import numpy as np
+from enum import Enum
 
-from pyminlp.hub import Coordinator
 from pyminlp.subprob import Instance
 
 
@@ -39,7 +39,6 @@ class BranchAndBound:
         """Factory method to generate a new BranchAndBound object.
         :coordinator: A hub.Coordinator object.
         """
-        assert type(coordinator) is Coordinator
         obj = BranchAndBound()
         obj._interface = coordinator
         return obj
@@ -68,19 +67,50 @@ class BranchAndBound:
             # Perform node selection.
             self._cur_node = open_nodes.pop(0)
             node = self._cur_node
+
+            # Assign all constraints of this node to a constraint
+            # handler.
+            result = self._interface.identify(node.instance)
+            if result != UserInputStatus.OK:
+                raise ValueError('Status after identify method call is {}. '
+                                 'Expected OK.'.format(result))
+
             # Add cuts to the initial problem without solving it before.
-            # TODO necessary?
-            self._interface.add_underestimators(node.instance)
+            result = self._interface.prepare(node.instance)
+            if result != UserInputStatus.OK:
+                raise ValueError('Status after preparation method call is {}. '
+                                 'Expected OK.'.format(result))
+
             node_done = False
 
             # Inner loop for a single node.
             while not node_done:
+
+                # Check if there are unassigned constraints and assign
+                # them to a constraint handler if necessary.
+                result = self._interface.identify(node.instance)
+                if result != UserInputStatus.OK:
+                    raise ValueError(
+                        'Status after identify method call is {}. '
+                        'Expected OK.'.format(result))
+
                 # Solve relaxation.
-                self._interface.solve_relaxation(node.instance)
-                # TODO handle unbounded case.
-                if not node.has_optimal_solution():
-                    # Pruning.
+                result = self._interface.solve_relaxation(node.instance)
+                if result != UserInputStatus.OK:
+                    raise ValueError(
+                        'Status after solve_relaxation method call is {}. '
+                        'Expected OK.'.format(result))
+
+                if node.has_optimal_solution():
+                    node.update_lower_bound()
+                elif node.relax_infeasible():
+                    # TODO conflict analysis?
                     break
+                else:
+                    raise ValueError('The relaxation solver terminated with '
+                                     'termination condition {}.'.format(
+                                 node.instance.relax_termination_condition()))
+
                 # Check dual bound.
                 sol = node.rel_sol_value()
                 if sol >= upper_bound:
@@ -101,40 +131,49 @@ class BranchAndBound:
                                 open_nodes.pop(i)
                                 del_count += 1
                     else:
-                        # Tighten relaxation, bounds or perform
-                        # branching.
-                        self._interface.enforce(node.instance)
-                        if node.branched:
+                        # Call the enforce method.
+                        result = self._interface.enforce(node.instance)
+                        if result == UserInputStatus.BRANCHED:
+                            self._cur_node.set_branched()
                             node_done = True
+                        elif result == UserInputStatus.INFEASIBLE:
+                            # TODO conflict analysis?
+                            node_done = True
+                        elif result == UserInputStatus.RESOLVE:
+                            node_done = False
+                        else:
+                            raise ValueError(
+                                'Status after solve_relaxation method'
+                                'call is {}. Expected DONE or '
+                                'RESOLVE.'.format(result))
 
     # Interface functions to influence the solving process.
 
-    def register_instance(self, instance):
+    def register_root_instance(self, instance):
         """Registers the instance that is to solve. It will be saved
         as root node of the branch and bound tree.
         """
         assert type(instance) is Instance
         self._root_node = _Node.create_node(instance)
 
-    def branching(self, child_instance_list=None):
-        """Tells the branch and bound algorithm to perform branching on
-        the current node. The children of the node are given by the
-        given instances.
-        :param child_instance_list: The children of the node.
+    def register_child_instances(self, instance_list):
+        """Registers the children instances of the current node.
+        :param instance_list: A list of instances.
         """
-        self._cur_node.set_branched()
-        if child_instance_list is not None:
-            for inst in child_instance_list:
-                node = _Node.create_node(instance=inst,
-                                         parent_node=self._cur_node)
-                self._open_nodes.append(node)
+        for inst in instance_list:
+            node = _Node.create_node(instance=inst,
+                                     parent_node=self._cur_node)
+            self._open_nodes.append(node)
 
-    def relaxation_solved(self):
-        """Informs the branch and bound algorithm that the relaxation
-        is solved."""
-        node = self._cur_node
-        if node.has_optimal_solution():
-            node.set_lower_bound(node.rel_sol_value())
+
+class UserInputStatus(Enum):
+    """Enumeration for indicating what the result of a user interaction
+    method is."""
+    OK = 1
+    RESOLVE = 2
+    BRANCHED = 3
+    INFEASIBLE = 4
+    FAIL = 5
 
 
 class _Node:
@@ -196,8 +235,10 @@ class _Node:
     def lower_bound(self):
         return self._lower_bound
 
-    def set_lower_bound(self, lower_bound):
-        self._lower_bound = lower_bound
+    def update_lower_bound(self):
+        val = self.rel_sol_value()
+        if val > self.lower_bound:
+            self._lower_bound = val
 
     @property
     def branched(self):
@@ -210,7 +251,11 @@ class _Node:
     def feasible(self):
         """Returns true, if the solution of the relaxation of the
         underlying instance is feasible."""
-        return self._instance.feasible()
+        if self.has_optimal_solution():
+            if self._instance.feasible():
+                return True
+        else:
+            return False
 
     def has_optimal_solution(self):
         """Returns True if the relaxation of the instance has an optimal
@@ -218,6 +263,11 @@ class _Node:
         unbounded.
         """
         return self._instance.has_optimal_solution()
+
+    def relax_infeasible(self):
+        """Returns True if the relaxation of the instance is infeasible.
+        """
+        return self._instance.relax_infeasible()
 
     def rel_sol_value(self):
         """Returns the optimal objective function value of the solved

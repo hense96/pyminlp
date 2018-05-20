@@ -2,7 +2,7 @@
 # It checks the input format and passes the information to the hub.
 
 
-from pyminlp.plugins.quad import *
+from pyminlp.conshdlr import ConsHandlerManager
 from pyminlp.hub import Coordinator
 
 
@@ -12,10 +12,11 @@ class PyMINLP:
         self._coordinator = Coordinator.create()
         # TODO implement this as a plugin.
         self._known_hdlrs = []
-        self._known_hdlrs.append(LinearHandler())
-        self._known_hdlrs.append(QuadConvHandler())
-        self._known_hdlrs.append(QuadNoncHandler())
+        self._known_hdlrs.append(ConsHandlerManager.create('linear'))
+        self._known_hdlrs.append(ConsHandlerManager.create('quadconv'))
+        self._known_hdlrs.append(ConsHandlerManager.create('quadnonc'))
         for hdlr in self._known_hdlrs:
+            # TODO find a better way for that.
             hdlr.solver = self
         self._used_hdlrs = []
 
@@ -26,14 +27,18 @@ class PyMINLP:
         self._coordinator.register_relaxation_solver(relaxation_solver)
 
     def set_epsilon(self, epsilon):
-        pass
+        self._coordinator.set_epsilon(epsilon)
 
-    def use_constraint_handler(self, name, types, prio, relax=False):
+    def use_constraint_handler(self, name, types, identify_prio,
+                               enforce_prio=None, relax=False):
         for hdlr in self._known_hdlrs:
             if hdlr.name() == name:
                 hdlr.set_relax(relax)
                 hdlr.add_constypes(types)
-                hdlr.set_prio(prio)
+                if enforce_prio is None:
+                    hdlr.set_prio(identify_prio, identify_prio)
+                else:
+                    hdlr.set_prio(identify_prio, enforce_prio)
                 self._coordinator.add_conshandler(hdlr)
                 break
 
