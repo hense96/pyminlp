@@ -6,6 +6,7 @@
 
 
 import numpy as np
+import random
 
 from pyomo.environ import *
 
@@ -84,7 +85,7 @@ class QuadConvHandler(ConsHandler):
         """Firstly calls a separation method that adds cuts,
         then a tighten method that tightens bounds."""
         self.separate(sets, model)
-        self.tighten(model)
+        #self.tighten(model)
 
     # Own functions.
 
@@ -178,13 +179,13 @@ class QuadNoncHandler(ConsHandler):
 
     def prepare(self, sets, model):
         """Call the tighten method."""
-        self.tighten(model)
+        #self.tighten(model)
 
     def enforce(self, sets, model):
         """Add McCormick underestimators, try to solve again,
         then branch."""
         self.mccormick(sets, model)
-        if self._count_enforce > 0:
+        if self._count_enforce > -1:
             self.branch(sets, model)
         self._count_enforce += 1
 
@@ -192,8 +193,8 @@ class QuadNoncHandler(ConsHandler):
         """Branching strategy. If no branching variable found,
         declare infeasibility."""
         # Do computations to find branching variable and point.
-        linvar = None
-        quadvar = None
+        linvar = []
+        quadvar = []
         for constype in sets.keys():
             index_set = sets[constype]
 
@@ -201,15 +202,15 @@ class QuadNoncHandler(ConsHandler):
             for index in index_set:
                 for v in model.X:
                     if not _is_fixed(model.X[v]):
-                        linvar = v
+                        linvar.append(v)
                         if _appears_in_A(model, v, model.A, index):
-                            quadvar = v
+                            quadvar.append(v)
                             break
 
-        if quadvar is not None:
-            var = quadvar
-        elif linvar is not None:
-            var = linvar
+        if len(quadvar) > 0:
+            var = random.choice(quadvar)
+        elif len(linvar) > 0:
+            var = random.choice(linvar)
         else:
             self.solver.declare_infeasible()
             return
@@ -246,8 +247,8 @@ class QuadNoncHandler(ConsHandler):
                     b = _get_numpy_rep(model, model.b, 1, index)
                     c = model.c[index] - model.cu[index]
                 elif constype == 'Quadcons2':
-                    A = - _get_numpy_rep(model, model.A, 2, index)
-                    A = _get_symmetric_part(A)
+                    A = _get_numpy_rep(model, model.A, 2, index)
+                    A = - _get_symmetric_part(A)
                     b = - _get_numpy_rep(model, model.b, 1, index)
                     c = - (model.c[index] - model.cl[index])
 

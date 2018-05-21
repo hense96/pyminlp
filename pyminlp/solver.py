@@ -29,6 +29,9 @@ class PyMINLP:
     def set_epsilon(self, epsilon):
         self._coordinator.set_epsilon(epsilon)
 
+    def set_verbosity(self, verbosity):
+        self._coordinator.set_verbosity(verbosity)
+
     def use_constraint_handler(self, name, types, identify_prio,
                                enforce_prio=None, relax=False):
         for hdlr in self._known_hdlrs:
@@ -59,7 +62,7 @@ class PyMINLP:
 
     def change_bounds(self, var, lower=None, upper=None):
         # TODO do some input format checking (not logically, format).
-        self._coordinator.change_varbounds(var, lower, upper)
+        self._coordinator.change_bounds(var, lower, upper)
 
     def declare_infeasible(self):
         self._coordinator.declare_infeasible()

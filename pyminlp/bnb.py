@@ -7,6 +7,7 @@ import numpy as np
 from enum import Enum
 
 from pyminlp.subprob import Instance
+from pyminlp.stats import Stats
 
 
 class BranchAndBound:
@@ -55,6 +56,9 @@ class BranchAndBound:
         """Performs the branch and bound algorithm.
         Precondition: An instance is registered."""
         assert self._root_node is not None
+
+        Stats.start_bnb(self)
+
         # Initialize data.
         upper_bound = np.inf
         self._open_nodes = [self._root_node]
@@ -68,6 +72,8 @@ class BranchAndBound:
             self._cur_node = open_nodes.pop(0)
             node = self._cur_node
             self._interface.set_instance(node.instance)
+
+            Stats.start_node(self)
 
             # Assign all constraints of this node to a constraint
             # handler.
@@ -89,12 +95,16 @@ class BranchAndBound:
             # Inner loop for a single node.
             while not node_done:
 
+                Stats.start_rel_sol(self)
+
                 # Solve relaxation.
                 result = self._interface.solve_relaxation()
                 if result != UserInputStatus.OK:
                     raise ValueError(
                         'Status after solve_relaxation method call is {}. '
                         'Expected OK.'.format(result))
+
+                Stats.finish_rel_sol(self)
 
                 if node.has_optimal_solution():
                     node.update_lower_bound()
@@ -141,6 +151,10 @@ class BranchAndBound:
                                 'Status after solve_relaxation method'
                                 'call is {}. Expected DONE, RESOLVE '
                                 'or INFEASIBLE.'.format(result))
+
+            Stats.finish_node(self)
+
+        Stats.finish_bnb(self)
 
     # Interface functions to influence the solving process.
 

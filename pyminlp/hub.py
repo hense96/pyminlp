@@ -6,6 +6,7 @@ import heapq
 from pyminlp.subprob import Instance
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus
+from pyminlp.stats import Stats
 
 
 class Coordinator:
@@ -68,6 +69,7 @@ class Coordinator:
         self._hdlrs_enf = []
         self._options = None
         self._epsilon = None
+        self._verbosity = None
         # References.
         self._bnb_tree = None
         # Current data.
@@ -118,6 +120,8 @@ class Coordinator:
             self._get_hdlr(hdlr).identify(sets, model)
             self._curdata.pop()
 
+            Stats.identify(self, curdata)
+
             # Handle user input.
             # TODO more precisely.
             if curdata.ncuts > 0 or curdata.ntighten > 0 or curdata.branched\
@@ -158,6 +162,8 @@ class Coordinator:
             self._curdata.append(curdata)
             self._get_hdlr(hdlr).prepare(sets, model)
             self._curdata.pop()
+
+            Stats.prepare(self, curdata)
 
             # Handle user input.
             # TODO Exception more precisely.
@@ -211,6 +217,8 @@ class Coordinator:
                 self._curdata.append(curdata)
                 self._get_hdlr(hdlr).enforce(sets, model)
                 self._curdata.append(curdata)
+
+                Stats.separate(self, curdata)
 
                 # Handle user input.
                 if curdata.infeasible:
@@ -272,7 +280,7 @@ class Coordinator:
             curdata.add_child(right)
         curdata.set_branched()
 
-    def change_bound(self, var, lower=None, upper=None):
+    def change_bounds(self, var, lower=None, upper=None):
         """Function to change a variable's bounds on the current
         instance object. See solver module for precise explanation.
         """
@@ -329,11 +337,17 @@ class Coordinator:
         """
         self._epsilon = epsilon
 
+    def set_verbosity(self, verbosity):
+        """Sets the verbosity, i.e. the how much information regarding
+        the solving process the solver provides."""
+        self._verbosity = verbosity
+
     def solve(self, py_model):
         """Initiates the solving process. Calls the branch and bound
         algorithm.
         :param py_model: Model to solve.
         """
+        Stats.initialise(verbosity=self._verbosity)
         self._py_model = py_model
         # Create instance.
         instance = Instance.create_instance(py_model.clone())

@@ -7,7 +7,7 @@ import unittest
 from pyomo.environ import *
 
 from pyminlp.subprob import Instance
-from pyminlp.conshdlr import ConsHandler
+from pyminlp.conshdlr import ConsHandlerManager
 
 
 class DiseaseEstimation(unittest.TestCase):
@@ -674,11 +674,11 @@ class QCQP(unittest.TestCase):
         pass
 
 
-class ConsHandlerDummy1(ConsHandler):
+class ConsHandlerDummy1(ConsHandlerManager):
     def name(self):
         return 'dummy1'
 
-class ConsHandlerDummy2(ConsHandler):
+class ConsHandlerDummy2(ConsHandlerManager):
     def name(self):
         return 'dummy2'
 

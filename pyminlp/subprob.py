@@ -110,7 +110,10 @@ class Instance:
         inst = Instance()
         inst._model = self._model.clone()
         inst._consmap = copy.copy(self._consmap)
-        inst._classif = copy.deepcopy(self._classif)
+        # Copy _classif attribute to the desired depth.
+        inst._classif = {}
+        for key in self._classif.keys():
+            inst._classif[key] = copy.copy(self._classif[key])
         return inst
 
     # Functions for providing data.

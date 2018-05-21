@@ -22,9 +22,10 @@ def foo(filename):
                                   types=['Quadcons1', 'Quadcons2'],
                                   identify_prio=3, relax=False)
 
-    relax_solver = SolverFactory('glpk')
+    relax_solver = SolverFactory('cbc')
     solver.set_relaxation_solver(relax_solver)
-    solver.set_epsilon(0.0001)
+    solver.set_epsilon(0.1)
+    solver.set_verbosity(2)
 
     solver.solve(model)
 
