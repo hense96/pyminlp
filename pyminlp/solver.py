@@ -57,9 +57,12 @@ class PyMINLP:
         # TODO do some input format checking (not logically, format).
         self._coordinator.branch(var, point)
 
-    def change_bound(self, var, lower=None, upper=None):
+    def change_bounds(self, var, lower=None, upper=None):
         # TODO do some input format checking (not logically, format).
         self._coordinator.change_varbounds(var, lower, upper)
+
+    def declare_infeasible(self):
+        self._coordinator.declare_infeasible()
 
     def match(self, cons):
         # TODO do some input format checking (not logically, format).

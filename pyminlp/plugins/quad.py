@@ -1,3 +1,9 @@
+# This is a plugin for solving generic QCP.
+# It distinguishes between linear constraints, convex quadratic
+# and nonconvex quadratic constraints.
+#
+# The underlying QCP formulation is given in pyminlp/dev/qcp.py.
+
 
 import numpy as np
 
@@ -56,6 +62,8 @@ class QuadConvHandler(ConsHandler):
         return 'quadconv'
 
     def identify(self, sets, model):
+        """Identifies convexity using the notion of positive
+        semidefiniteness."""
         # Iterate over all constraint representation types.
         for constype in sets:
             set = sets[constype]
@@ -73,11 +81,16 @@ class QuadConvHandler(ConsHandler):
         pass
 
     def enforce(self, sets, model):
+        """Firstly calls a separation method that adds cuts,
+        then a tighten method that tightens bounds."""
         self.separate(sets, model)
+        self.tighten(model)
 
     # Own functions.
 
     def separate(self, sets, model):
+        """Separation method for quadratic constraints using a linear
+        underestimation of the constraints at the solution point."""
         # Iterate over all constraint representation types.
         for constype in sets.keys():
             index_set = sets[constype]
@@ -116,9 +129,35 @@ class QuadConvHandler(ConsHandler):
                                             params={'an': model.a_new,
                                                     'cn': model.c_new})
 
+                model.del_component('a_new')
+                model.del_component('c_new')
+                model.del_component('Cut_new')
+
+    def tighten(self, model):
+        """This is dummy function to test the tighten_bounds interface
+        function. It only works for the minlplib_st_e30 instance, where
+        the actual varbounds of X[x11], X[x12], X[x13] are 0 and 3."""
+        index_set = ['x11', 'x12', 'x13']
+        for index in index_set:
+            lb = model.X[index].lb
+            if lb <= -1:
+                self.solver.change_bounds(model.X[index].name, lower=(lb + 1))
+            elif lb < 0:
+                self.solver.change_bounds(model.X[index].name, lower=0)
+            else:
+                ub = model.X[index].ub
+                if ub >= 4:
+                    self.solver.change_bounds(model.X[index].name,
+                                             lower=(ub - 1))
+                elif ub > 3:
+                    self.solver.change_bounds(model.X[index].name, lower=3)
+
 
 class QuadNoncHandler(ConsHandler):
     """Handler for all non-convex quadratic constraints."""
+
+    def __init__(self):
+        self._count_enforce = 0
 
     @classmethod
     def create(cls):
@@ -129,6 +168,7 @@ class QuadNoncHandler(ConsHandler):
         return 'quadnonc'
 
     def identify(self, sets, model):
+        """All leftover constraints are considered nonconvex."""
         # Match any constraint.
         for constype in sets:
             set = sets[constype]
@@ -137,13 +177,20 @@ class QuadNoncHandler(ConsHandler):
                 self.solver.match(cons.name)
 
     def prepare(self, sets, model):
-        pass
+        """Call the tighten method."""
+        self.tighten(model)
 
     def enforce(self, sets, model):
+        """Add McCormick underestimators, try to solve again,
+        then branch."""
         self.mccormick(sets, model)
-        self.branch(sets, model)
+        if self._count_enforce > 0:
+            self.branch(sets, model)
+        self._count_enforce += 1
 
     def branch(self, sets, model):
+        """Branching strategy. If no branching variable found,
+        declare infeasibility."""
         # Do computations to find branching variable and point.
         linvar = None
         quadvar = None
@@ -164,10 +211,10 @@ class QuadNoncHandler(ConsHandler):
         elif linvar is not None:
             var = linvar
         else:
-            # TODO declare infeasibility.
-            pass
+            self.solver.declare_infeasible()
+            return
 
-        xb = model.X[var]
+        xb = value(model.X[var])
         xl = model.X[var].lb
         xu = model.X[var].ub
         thresh = 0.8
@@ -182,6 +229,7 @@ class QuadNoncHandler(ConsHandler):
 
 
     def mccormick(self, sets, model):
+        """Create McCormick underestimators."""
         # Iterate over all constraint representation types.
         for constype in sets.keys():
             index_set = sets[constype]
@@ -192,7 +240,6 @@ class QuadNoncHandler(ConsHandler):
                 # Read relevant parameters.
                 x = _get_numpy_rep(model, model.X, 1)
                 xl, xu = _get_bounds(model)
-                # TODO read solution and varbound parameters.
                 if constype == 'Quadcons1':
                     A = _get_numpy_rep(model, model.A, 2, index)
                     A = _get_symmetric_part(A)
@@ -221,7 +268,31 @@ class QuadNoncHandler(ConsHandler):
                                             params={'an': model.a_new,
                                                     'cn': model.c_new})
 
+                model.del_component('a_new')
+                model.del_component('c_new')
+                model.del_component('Cut_new')
+
+    def tighten(self, model):
+        """This is dummy function to test the tighten_bounds interface
+        function. It only works for the minlplib_st_e30 instance, where
+        the actual varbounds of X[x11], X[x12], X[x13] are 0 and 3."""
+        index_set = ['x11', 'x12', 'x13']
+        for index in index_set:
+            lb = model.X[index].lb
+            if lb <= -1:
+                self.solver.change_bounds(model.X[index].name, lower=(lb + 1))
+            elif lb < 0:
+                self.solver.change_bounds(model.X[index].name, lower=0)
+            else:
+                ub = model.X[index].ub
+                if ub >= 4:
+                    self.solver.change_bounds(model.X[index].name,
+                                             lower=(ub - 1))
+                elif ub > 3:
+                    self.solver.change_bounds(model.X[index].name, lower=3)
+
     def _compute_mccormick_params(self, A, b, c, x, xl, xu):
+        """Parameter computation for McCormick underestimators."""
         # Initialise values.
         n = len(A)
         A = _get_upper_triangular(A)

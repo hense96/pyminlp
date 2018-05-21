@@ -3,7 +3,6 @@
 
 import copy
 
-# TODO more precisely
 from pyomo.environ import *
 from pyomo.opt import SolverStatus, TerminationCondition
 
@@ -333,6 +332,19 @@ class Instance:
                                        termination_condition=term_cond)
         # If there is a solution, find the violated constraints.
         if term_cond == TerminationCondition.optimal:
+            # Firstly, postprocess relaxation.
+            # If there is any variable without value, assign randomly.
+            for vartype in relax.component_objects(Var):
+                for v in vartype:
+                    if vartype[v].value is None:
+                        if vartype[v].lb is not None:
+                            vartype[v].value = vartype[v].lb
+                        elif vartype[v].ub is not None:
+                            vartype[v].value = vartype[v].ub
+                        else:
+                            # TODO maybe rather raise exception here.
+                            vartype[v].value = 0
+            # Now iterate of all constraints.
             for (cons, py_cons) in nonrel_cons:
                 # Catch weird special case.
                 if py_cons.upper is None and py_cons.lower is None:
@@ -673,19 +685,50 @@ class Instance:
         """
         # TODO This implementation is a workaround. Use proper functions
         # TODO when Pyomo 5.6 is released.
+        # TODO It does not even work in any case, probably.
         model = self._model
-        for i in range(len(expr._args)):
-            arg = expr._args[i]
-            if hasattr(arg, '_args'):
-                self._transform_expr(arg)
-            else:
-                if isinstance(arg, _GeneralVarData):
-                    # Find new var object.
-                    name, index = arg.name.split('[')
-                    index = index[:-1]
-                    new_var = model.component(name)[index]
-                    expr._args[i] = new_var
-        return expr
+        # Standard case for expressions.
+        if expr._args is not None:
+            for i in range(len(expr._args)):
+                arg = expr._args[i]
+                if hasattr(arg, '_args'):
+                    self._transform_expr(arg)
+                else:
+                    if isinstance(arg, _GeneralVarData):
+                        # Find new var object.
+                        name, index = arg.name.split('[')
+                        index = index[:-1]
+                        new_var = model.component(name)[index]
+                        expr._args[i] = new_var
+            return expr
+        # Special cases.
+        elif hasattr(expr, '_numerator') and hasattr(expr, '_denominator'):
+            for i in range(len(expr._numerator)):
+                arg = expr._numerator[i]
+                if hasattr(arg, '_args'):
+                    self._transform_expr(arg)
+                else:
+                    if isinstance(arg, _GeneralVarData):
+                        # Find new var object.
+                        name, index = arg.name.split('[')
+                        index = index[:-1]
+                        new_var = model.component(name)[index]
+                        expr._numerator[i] = new_var
+            for i in range(len(expr._denominator)):
+                arg = expr._denominator[i]
+                if hasattr(arg, '_args'):
+                    self._transform_expr(arg)
+                else:
+                    if isinstance(arg, _GeneralVarData):
+                        # Find new var object.
+                        name, index = arg.name.split('[')
+                        index = index[:-1]
+                        new_var = model.component(name)[index]
+                        expr._denominator[i] = new_var
+            return expr
+        else:
+            raise Exception('Unknown Expression type. Can not transform'
+                            ' expr.')
 
 
 class _Cons:

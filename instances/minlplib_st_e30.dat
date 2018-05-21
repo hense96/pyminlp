@@ -1,0 +1,100 @@
+
+set V := x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 objvar xh7 xh8 ;
+
+set C := e1 e2 e3 e4 e5 e6 e7 e8 e9 e10 e11 e12 e13 e14 e15 e16 eh7 eh8 ;
+
+
+param A :=
+ e1  x12   x7  -1
+ e2  x12   x8  -1
+ e3  x13   x7  -1
+ e3  x11   x9  -1
+ e4  x13   x8  -1
+ e4  x11  x10  -1
+ eh7 xh7  xh7   1
+ eh8 xh8  xh8   1 ;
+ 
+ 
+param b :=
+ e1   x1  -1
+ e1   x3   1
+ e2   x2  -1
+ e2   x4   1
+ e3   x1  -1
+ e3   x5   1
+ e4   x2  -1
+ e4   x6   1 
+ e5  xh7   1
+ e5  xh8   1
+ e6   x8   1
+ e6   x9   1
+ e7   x7  -1
+ e7  x10   1
+ e8  x12  -1
+ e8  x14   1
+ e9  x11  -1
+ e9  x14   1
+ e10  x1   2
+ e10  x2   1
+ e11  x3   2
+ e11  x4   1
+ e12  x5   2
+ e12  x6   1
+ e13  x1   1
+ e13  x2   1
+ e14  x3   1
+ e14  x4   1
+ e15  x5   1
+ e15  x6   1
+ e16 x14   1
+ e16 objvar 1
+ eh7  x7  -1
+ eh8  x8  -1 ;
+ 
+ 
+param c :=
+ e1   0 ;
+
+ 
+
+param:   cl   cu :=
+ e1       0    0
+ e2       0    0
+ e3       0    0
+ e4       0    0
+ e5       1    1
+ e6       0    0
+ e7       0    0
+ e8    -Inf    0
+ e9    -Inf    0
+ e10     -1  Inf
+ e11     -1  Inf
+ e12     -1  Inf
+ e13   -Inf    1
+ e14   -Inf    1 
+ e15   -Inf    1
+ e16      0    0
+ eh7      0    0
+ eh8      0    0 ;
+ 
+ 
+
+
+param:   xl   xu   z :=
+ x1      -1    1   0
+ x2      -1    1   0
+ x3      -1    1   0
+ x4      -1    1   0
+ x5      -1    1   0
+ x6      -1    1   0
+ x7      -1    1   0
+ x8      -1    1   0
+ x9      -1    1   0
+ x10     -1    1   0
+ x11      0    3   0
+ x12      0    3   0
+ x13      0    3   0
+ x14      0    3   0
+ objvar  -3    0   1
+ xh7      0    1   0
+ xh8      0    1   0 ;

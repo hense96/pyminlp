@@ -64,38 +64,33 @@ class BranchAndBound:
         # Outer loop for all generated nodes.
         while len(open_nodes) > 0:
             node_count += 1
-            # Perform node selection.
+            # Perform node selection and register new instance.
             self._cur_node = open_nodes.pop(0)
             node = self._cur_node
+            self._interface.set_instance(node.instance)
 
             # Assign all constraints of this node to a constraint
             # handler.
-            result = self._interface.identify(node.instance)
+            result = self._interface.identify()
             if result != UserInputStatus.OK:
                 raise ValueError('Status after identify method call is {}. '
                                  'Expected OK.'.format(result))
 
-            # Add cuts to the initial problem without solving it before.
-            result = self._interface.prepare(node.instance)
-            if result != UserInputStatus.OK:
+            # Call preparation routines.
+            result = self._interface.prepare()
+            if result == UserInputStatus.OK:
+                node_done = False
+            elif result == UserInputStatus.INFEASIBLE:
+                node_done = True
+            else:
                 raise ValueError('Status after preparation method call is {}. '
-                                 'Expected OK.'.format(result))
-
-            node_done = False
+                                 'Expected OK or INFEASIBLE.'.format(result))
 
             # Inner loop for a single node.
             while not node_done:
 
-                # Check if there are unassigned constraints and assign
-                # them to a constraint handler if necessary.
-                result = self._interface.identify(node.instance)
-                if result != UserInputStatus.OK:
-                    raise ValueError(
-                        'Status after identify method call is {}. '
-                        'Expected OK.'.format(result))
-
                 # Solve relaxation.
-                result = self._interface.solve_relaxation(node.instance)
+                result = self._interface.solve_relaxation()
                 if result != UserInputStatus.OK:
                     raise ValueError(
                         'Status after solve_relaxation method call is {}. '
@@ -132,20 +127,20 @@ class BranchAndBound:
                                 del_count += 1
                     else:
                         # Call the enforce method.
-                        result = self._interface.enforce(node.instance)
-                        if result == UserInputStatus.BRANCHED:
-                            self._cur_node.set_branched()
-                            node_done = True
-                        elif result == UserInputStatus.INFEASIBLE:
+                        result = self._interface.enforce()
+                        if result == UserInputStatus.INFEASIBLE:
                             # TODO conflict analysis?
+                            node_done = True
+                        elif result == UserInputStatus.BRANCHED:
+                            self._cur_node.set_branched()
                             node_done = True
                         elif result == UserInputStatus.RESOLVE:
                             node_done = False
                         else:
                             raise ValueError(
                                 'Status after solve_relaxation method'
-                                'call is {}. Expected DONE or '
-                                'RESOLVE.'.format(result))
+                                'call is {}. Expected DONE, RESOLVE '
+                                'or INFEASIBLE.'.format(result))
 
     # Interface functions to influence the solving process.
 
