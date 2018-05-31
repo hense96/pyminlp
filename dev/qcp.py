@@ -14,17 +14,23 @@ def foo(filename):
 
     solver.use_constraint_handler(name='linear',
                                   types=['Quadcons1', 'Quadcons2', 'Cut'],
-                                  identify_prio=1, relax=True)
+                                  identify_prio=1,
+                                  enforce_prio=1,
+                                  relax=True)
     solver.use_constraint_handler(name='quadconv',
                                   types=['Quadcons1', 'Quadcons2'],
-                                  identify_prio=2, relax=False)
+                                  identify_prio=2,
+                                  enforce_prio=2,
+                                  relax=False)
     solver.use_constraint_handler(name='quadnonc',
                                   types=['Quadcons1', 'Quadcons2'],
-                                  identify_prio=3, relax=False)
+                                  identify_prio=3,
+                                  enforce_prio=3,
+                                  relax=False)
 
     relax_solver = SolverFactory('cbc')
     solver.set_relaxation_solver(relax_solver)
-    solver.set_epsilon(0.1)
+    solver.set_epsilon(0.0001, 0.0001)
     solver.set_verbosity(2)
 
     solver.solve(model)

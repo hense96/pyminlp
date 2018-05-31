@@ -4,6 +4,7 @@
 
 
 import numpy as np
+import heapq
 from enum import Enum
 
 from pyminlp.subprob import Instance
@@ -13,7 +14,7 @@ from pyminlp.stats import Stats
 class BranchAndBound:
     """This class encapsulates the branch and bound algorithm.
     Particularly, it stores the current status of the algorithm and
-    makes offers functions for modifying the process.
+    offers functions for modifying the process.
 
     Note that the BranchAndBound class makes use of the _Node class,
     but never passes _Node objects to other modules.
@@ -22,17 +23,27 @@ class BranchAndBound:
     instance.
 
     Private class attributes:
-        _interface  A reference to the Coordinator object that works as
-                        an interface for the branch and bound algorithm
-                        for all user related functions.
-        _open_nodes The list of _Node objects that have not been
-                        considered yet in the branch and bound process.
-        _root_node  The root node of the branch and bound tree (_Node
-                        object).
-        _cur_node   The node that is currently being considered within
-                        the branch and bound algorithm.
-        _best_node  The node containing the best found feasible
-                        solution.
+        _interface   A reference to the Coordinator object that works
+                         as an interface for the branch and bound
+                         algorithm for all user related functions.
+        _open_nodes  The priority queue of _Node objects that have not
+                         been considered yet in the branch and bound
+                         process. The priority is given by the local
+                         lower bound of the nodes. The objects in the
+                         queue have the following shape:
+                             (priority, object)
+        _root_node   The root node of the branch and bound tree (_Node
+                         object).
+        _cur_node    The node that is currently being considered within
+                         the branch and bound algorithm (_Node object.)
+        _best_node   The node containing the best found feasible
+                         solution.
+        _child_nodes A list of child nodes of the _cur_node in case
+                         branching is performed.
+        _lower_bound The current global lower bound for the optimal
+                         objective function value of the root node.
+        _upper_bound The current global upper bound for the optimal
+                         objective function value of the root node.
     """
 
     @classmethod
@@ -50,9 +61,12 @@ class BranchAndBound:
         self._open_nodes = []
         self._root_node = None
         self._cur_node = None
+        self._child_nodes = None
         self._best_node = None
+        self._lower_bound = None
+        self._upper_bound = None
 
-    def execute(self):
+    def execute(self, epsilon=None):
         """Performs the branch and bound algorithm.
         Precondition: An instance is registered."""
         assert self._root_node is not None
@@ -60,18 +74,38 @@ class BranchAndBound:
         Stats.start_bnb(self)
 
         # Initialize data.
-        upper_bound = np.inf
-        self._open_nodes = [self._root_node]
+        self._lower_bound = -np.inf
+        self._upper_bound = np.inf
         open_nodes = self._open_nodes
+        heapq.heappush(open_nodes,
+                       (self._root_node.lower_bound, self._root_node))
         node_count = 0
 
         # Outer loop for all generated nodes.
         while len(open_nodes) > 0:
             node_count += 1
-            # Perform node selection and register new instance.
-            self._cur_node = open_nodes.pop(0)
+
+            # Update global lower bound if possible.
+            lower, _ = open_nodes[0]
+            if lower > self._lower_bound:
+                self._lower_bound = lower
+
+            # Check if current solution is good enough.
+            if self._upper_bound - self._lower_bound < epsilon:
+                break
+
+            # Perform node selection and register the chosen instance.
+            # TODO maybe offer a plugin for this.
+            _, self._cur_node = heapq.heappop(open_nodes)
             node = self._cur_node
             self._interface.set_instance(node.instance)
+            self._child_nodes = []
+
+            # Read the minimal lower bound of all other nodes.
+            if len(open_nodes) > 0:
+                minimal_lower, _ = open_nodes[0]
+            else:
+                minimal_lower = -np.inf
 
             Stats.start_node(self)
 
@@ -88,9 +122,19 @@ class BranchAndBound:
                 node_done = False
             elif result == UserInputStatus.INFEASIBLE:
                 node_done = True
+            elif result == UserInputStatus.BRANCHED:
+                if len(self._child_nodes) == 0:
+                    raise ValueError('Branching performed but no child nodes '
+                                     'were given.')
+                for node in self._child_nodes:
+                    heapq.heappush(self._open_nodes,
+                                   (node.lower_bound, node))
+                self._cur_node.set_branched()
+                node_done = True
             else:
                 raise ValueError('Status after preparation method call is {}. '
-                                 'Expected OK or INFEASIBLE.'.format(result))
+                                 'Expected OK, INFEASIBLE, '
+                                 'BRANCHED.'.format(result))
 
             # Inner loop for a single node.
             while not node_done:
@@ -99,6 +143,7 @@ class BranchAndBound:
 
                 # Solve relaxation.
                 result = self._interface.solve_relaxation()
+                # Handle the user input.
                 if result != UserInputStatus.OK:
                     raise ValueError(
                         'Status after solve_relaxation method call is {}. '
@@ -106,10 +151,15 @@ class BranchAndBound:
 
                 Stats.finish_rel_sol(self)
 
+                # Evaluate result of the solution of the relaxation.
                 if node.has_optimal_solution():
                     node.update_lower_bound()
+                    # Update global lower bound if possible.
+                    if minimal_lower > self._lower_bound and \
+                       node.lower_bound > self._lower_bound:
+                        self._lower_bound = min(minimal_lower,
+                                                node.lower_bound)
                 elif node.relax_infeasible():
-                    # TODO conflict analysis?
                     break
                 else:
                     raise ValueError('The relaxation solver terminated with '
@@ -118,7 +168,7 @@ class BranchAndBound:
 
                 # Check dual bound.
                 sol = node.rel_sol_value()
-                if sol >= upper_bound:
+                if sol >= self._upper_bound:
                     # Pruning.
                     node_done = True
                 else:
@@ -126,22 +176,29 @@ class BranchAndBound:
                     if node.feasible():
                         node_done = True
                         # Update the global bounds.
-                        upper_bound = sol
+                        self._upper_bound = sol
                         self._best_node = node
                         # Check whether new solution prunes any other
                         # nodes.
                         del_count = 0
                         for i in reversed(range(len(open_nodes))):
-                            if open_nodes[i].lower_bound >= upper_bound:
+                            _, open_node = open_nodes[i]
+                            if open_node.lower_bound >= self._upper_bound:
                                 open_nodes.pop(i)
                                 del_count += 1
                     else:
-                        # Call the enforce method.
+                        # Enforce the violated constraints.
                         result = self._interface.enforce()
+                        # Handle user decision.
                         if result == UserInputStatus.INFEASIBLE:
-                            # TODO conflict analysis?
                             node_done = True
                         elif result == UserInputStatus.BRANCHED:
+                            if len(self._child_nodes) == 0:
+                                raise ValueError('Branching performed but no '
+                                                 'child nodes were given.')
+                            for node in self._child_nodes:
+                                heapq.heappush(self._open_nodes,
+                                               (node.lower_bound, node))
                             self._cur_node.set_branched()
                             node_done = True
                         elif result == UserInputStatus.RESOLVE:
@@ -149,10 +206,13 @@ class BranchAndBound:
                         else:
                             raise ValueError(
                                 'Status after solve_relaxation method'
-                                'call is {}. Expected DONE, RESOLVE '
+                                'call is {}. Expected OK, RESOLVE '
                                 'or INFEASIBLE.'.format(result))
 
             Stats.finish_node(self)
+
+        if len(open_nodes) == 0:
+            self._lower_bound = self._best_node.lower_bound
 
         Stats.finish_bnb(self)
 
@@ -161,18 +221,19 @@ class BranchAndBound:
     def register_root_instance(self, instance):
         """Registers the instance that is to solve. It will be saved
         as root node of the branch and bound tree.
+        :param instance: An Instance object.
         """
         assert type(instance) is Instance
         self._root_node = _Node.create_node(instance)
 
     def register_child_instances(self, instance_list):
         """Registers the children instances of the current node.
-        :param instance_list: A list of instances.
+        :param instance_list: A list of Instance objects.
         """
         for inst in instance_list:
             node = _Node.create_node(instance=inst,
                                      parent_node=self._cur_node)
-            self._open_nodes.append(node)
+            self._child_nodes.append(node)
 
 
 class UserInputStatus(Enum):
@@ -201,6 +262,7 @@ class _Node:
         lower_bound  The lower bound for the objective function value,
                          derived from relaxation solutions from parent
                          nodes and the relaxation solution of this node.
+        upper_bound  TODO not implemented yet.
         branched     A flag indicating whether this node is branched.
     """
 
@@ -226,7 +288,12 @@ class _Node:
         self._number = None
         self._depth = 0
         self._lower_bound = -np.inf
+        # TODO not implemented yet.
+        self._upper_bound = np.inf
         self._branched = False
+
+    def __lt__(self, other):
+        return self.number < other.number
 
     @property
     def instance(self):
@@ -248,6 +315,10 @@ class _Node:
         val = self.rel_sol_value()
         if val > self.lower_bound:
             self._lower_bound = val
+
+    @property
+    def upper_bound(self):
+        return self._upper_bound
 
     @property
     def branched(self):

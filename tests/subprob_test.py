@@ -1,10 +1,10 @@
 
 
-
-
 import unittest
 
 from pyomo.environ import *
+from pyomo.opt import TerminationCondition
+import numpy as np
 
 from pyminlp.subprob import Instance
 from pyminlp.conshdlr import ConsHandlerManager
@@ -68,6 +68,18 @@ class DiseaseEstimation(unittest.TestCase):
         """ This test focuses on the consistency of the attributes of
         an Instance object and the consistency of the data providing
         functions executing different changes.
+
+        Tested attributes:
+            _consmap
+            _classif
+
+        Tested functions:
+            nconstraints()
+            nunclassified()
+            unclassified(constype)
+            constypes()
+            register_conshandler(constraint, conshandler)
+            add_constraints(constype, constraints, parameters)
         """
         # Initialisation test.
         int_inst = Instance.create_instance(self.instance)
@@ -125,7 +137,7 @@ class DiseaseEstimation(unittest.TestCase):
         # Add constraints.
         add_model = ConcreteModel()
         add_model.S = Set(initialize=[1, 2, 3])
-        add_model.Par = Param(add_model.S, initialize={1:1, 2:2, 3:3})
+        add_model.Par = Param(add_model.S, initialize={1: 1, 2: 2, 3: 3})
         add_model.I = Var(self.instance.S_SI, bounds=(0, self.instance.P_POP),
                           initialize=1)
 
@@ -190,6 +202,18 @@ class DiseaseEstimation(unittest.TestCase):
         that are derived from each other. It checks if the attributes
         change globally or locally when changed locally. Some attributes
         have local and some have global character.
+
+        Tested attributes:
+            _model
+            _consmap
+            _classif
+
+        Tested functions:
+            Instance.derive_instance(instance)
+            nconstraints()
+            nunclassified()
+            register_conshandler(constraint, conshandler)
+            add_constraints(constype, constraints, parameters)
         """
         int_inst = Instance.create_instance(self.instance)
 
@@ -357,9 +381,10 @@ class DiseaseEstimation(unittest.TestCase):
         add_model.sset1 = Set(initialize=['a', 'b', 'c'])
         add_model.sset2 = Set(initialize=['d', 'e', 'f'])
         add_model.cset1 = Set(add_model.sset1, add_model.sset1,
-                              initialize={('a','a'):'a', ('b','b'):'b'})
+                              initialize={('a', 'a'): 'a', ('b', 'b'): 'b'})
         add_model.cset2 = self.instance.S_SI * self.instance.S_SI
         add_model.v = Var(add_model.sset2)
+        int_inst.model().v = Var(add_model.sset2)
 
         add_model.scons = Constraint(expr=add_model.v['d']
                                           - add_model.v['e'] <= 0)
@@ -408,6 +433,7 @@ class DiseaseEstimation(unittest.TestCase):
         # Test different parameter types.
         int_inst = int_inst_base._clone()
         add_model.sset3 = Set(initialize=['g', 'h', 'i'])
+        int_inst.model().v = Var(add_model.sset2)
 
         def param_rule_1(model, i):
             return 1
@@ -454,6 +480,7 @@ class DiseaseEstimation(unittest.TestCase):
         self.assertEqual(len(int_inst.model()._scons_Set), 3)
 
         int_inst = int_inst_base._clone()
+        int_inst.model().v = Var(add_model.sset2)
 
         self.assertRaises(ValueError, int_inst.add_constraints,
                           'sindcons', add_model.sindcons,
@@ -600,78 +627,196 @@ class DiseaseEstimation(unittest.TestCase):
                           {'in1_s': add_model.in1_m2})
 
 
-class QCQP(unittest.TestCase):
+class SimpleInstance(unittest.TestCase):
 
 
     def setUp(self):
-        """Generates the disease estimation model from the Pyomo book
-        and saves the resulting constructed ConcreteModel. Additionally
-        creates two dummy constraint handler.
+        """Generates a simple instance and saves the resulting
+        constructed ConcreteModel. Additionally creates two dummy
+        constraint handler and a relaxation solver.
         """
-        # Create an abstract model for a QCQP with linear objective
-        model = AbstractModel()
+        # Create a concrete model.
+        model = ConcreteModel()
 
         # Sets
-        model.C = Set()
-        model.V = Set()
-
-        # Constraint parameters
-        model.A = Param(model.C, model.V, model.V, default=0)
-        model.b = Param(model.C, model.V, default=0)
-        model.c = Param(model.C, default=0)
-
-        # Constraint bounds
-        model.cl = Param(model.C)
-        model.cu = Param(model.C)
-
-        # Variable bounds
-        model.xl = Param(model.V)
-        model.xu = Param(model.V)
-
-        # Objective function parameters
-        model.z = Param(model.V, default=0)
+        model.V = Set(initialize=[1, 2])
 
         # Bounds
         def var_bounds_rule(model, k):
-            return model.xl[k], model.xu[k]
+            return -np.Inf, np.Inf
 
         # Variables
         model.X = Var(model.V, bounds=var_bounds_rule, domain=Reals)
 
+        model.XS = Var(bounds=(-1, 1))
+
         # Objective
         def obj_rule(model):
-            return sum(model.z[k] * model.X[k] for k in model.V)
+            return model.X[1] + model.X[2]
 
         model.Obj = Objective(rule=obj_rule, sense=minimize)
 
         # Constraints
-        def cons_rule_1(model, i):
-            quad = sum(sum(model.A[i, k1, k2] * model.X[k1] * model.X[k2]
-                           for k1 in model.V) for k2 in model.V)
-            lin = sum(model.b[i, k] * model.X[k] for k in model.V) + model.c[i]
-            return quad + lin <= model.cu[i]
+        def cons_rule_1(model):
+            return model.X[1] >= 0
 
-        model.Quadcons1 = Constraint(model.C, rule=cons_rule_1)
+        model.C1 = Constraint(rule=cons_rule_1)
 
-        def cons_rule_2(model, i):
-            quad = sum(sum(model.A[i, k1, k2] * model.X[k1] * model.X[k2]
-                           for k1 in model.V) for k2 in model.V)
-            lin = sum(model.b[i, k] * model.X[k] for k in model.V) + model.c[i]
-            return -(quad + lin) <= -model.cl[i]
+        def cons_rule_2(model):
+            return model.X[2] >= 0
 
-        model.Quadcons2 = Constraint(model.C, rule=cons_rule_2)
+        model.C2 = Constraint(rule=cons_rule_2)
 
-        instance = model.create_instance('instances/minlplib_ex_9_2_8.dat')
-
-        self.instance = instance
+        self.instance = model
+        self.dummy1 = ConsHandlerDummy1()
+        self.dummy2 = ConsHandlerDummy2()
+        self.relax_solver = [SolverFactory('cbc'), SolverFactory('glpk')]
 
 
-    def plugin_function_test(self):
-        """This test focuses on the correct implementation and the
-        reaction to bad uses of the functions that are relevant for the
-        plugins, i.e. add_constraints(...) and change_varbounds(...).
+    def relaxation_solution_test(self):
+        """This test focuses on the correct implementation of all data
+        that are associated with the solve_relaxation() method.
+
+        Tested functions:
+            Instance.derive_instance(instance)
+            solve_relaxation(relaxation_solver)
+            relaxation_solved()
+            feasible()
+            has_optimal_solution()
+            relax_infeasible()
+            relax_termination_condition()
+            objective_function_value()
+            violated_sets(conshandler)
+            nviolated(conshandler)
+            relax_model()
+            add_constraints(constype, constraints, params)
+            change_varbounds(varname, lower_bound, upper_bound)
         """
-        pass
+        int_inst = Instance.create_instance(self.instance)
+        model = int_inst.model().clone()
+        self.dummy1.set_relax(True)
+        self.dummy2.set_relax(False)
+        int_inst.register_conshandler(model.C1.name, self.dummy1)
+        self.dummy1.add_constypes(['C1'])
+        int_inst.register_conshandler(model.C2.name, self.dummy2)
+        self.dummy2.add_constypes(['C2'])
+
+        self.assertEqual(int_inst.relaxation_solved(), False)
+
+        # Unbounded case.
+        for relax_solver in self.relax_solver:
+            int_inst.solve_relaxation(relax_solver)
+
+            self.assertEqual(int_inst.relaxation_solved(), True)
+
+            self.assertEqual(int_inst.relax_termination_condition(),
+                             TerminationCondition.unbounded)
+            int_inst.relax_model()
+            self.assertEqual(int_inst.has_optimal_solution(), False)
+            self.assertEqual(int_inst.relax_infeasible(), False)
+            self.assertRaises(AssertionError, int_inst.feasible)
+            self.assertRaises(AssertionError,
+                              int_inst.objective_function_value)
+            self.assertRaises(AssertionError, int_inst.violated_sets,
+                              self.dummy1)
+            self.assertRaises(AssertionError, int_inst.nviolated,
+                              self.dummy2)
+
+        def cons_rule_3(model):
+            return model.X[2] >= -5
+
+        model.Cons = Constraint(rule=cons_rule_3)
+
+        int_inst.add_constraints('C3', model.Cons)
+
+        self.assertEqual(int_inst.relaxation_solved(), False)
+
+        new_cons = int_inst.model().component('C3')
+        for c in new_cons:
+            int_inst.register_conshandler(new_cons[c].name, self.dummy1)
+        self.dummy1.add_constypes(['C3'])
+
+        # Optimal case, infeasible for actual instance.
+        for relax_solver in self.relax_solver:
+            int_inst.solve_relaxation(relax_solver)
+
+            self.assertEqual(int_inst.relaxation_solved(), True)
+
+            self.assertEqual(int_inst.relax_termination_condition(),
+                             TerminationCondition.optimal)
+            int_inst.relax_model()
+            self.assertEqual(int_inst.has_optimal_solution(), True)
+            self.assertEqual(int_inst.relax_infeasible(), False)
+            self.assertEqual(int_inst.feasible(), False)
+            self.assertEqual(int_inst.objective_function_value(), -5)
+            self.assertEqual(int_inst.nviolated(self.dummy1), 0)
+            self.assertEqual(int_inst.nviolated(self.dummy2), 1)
+            self.assertEqual(int_inst.violated_sets(self.dummy2),
+                             {'C2': [None]})
+            self.assertEqual(int_inst.violated_sets(self.dummy2),
+                             int_inst.conshandler_sets(self.dummy2))
+
+        child_inst = Instance.derive_instance(int_inst)
+
+        self.assertEqual(child_inst.relaxation_solved(), False)
+        child_inst.change_varbounds('X[2]', lower_bound=0)
+        self.assertEqual(int_inst.relaxation_solved(), True)
+
+        # Optimal case, feasible for actual instance.
+        for relax_solver in self.relax_solver:
+            child_inst.solve_relaxation(relax_solver)
+
+            self.assertEqual(child_inst.relaxation_solved(), True)
+
+            self.assertEqual(child_inst.relax_termination_condition(),
+                             TerminationCondition.optimal)
+            child_inst.relax_model()
+            self.assertEqual(child_inst.has_optimal_solution(), True)
+            self.assertEqual(child_inst.relax_infeasible(), False)
+            self.assertEqual(child_inst.feasible(), True)
+            self.assertEqual(child_inst.objective_function_value(), 0)
+            self.assertEqual(child_inst.nviolated(self.dummy1), 0)
+            self.assertEqual(child_inst.nviolated(self.dummy2), 0)
+            self.assertEqual(child_inst.violated_sets(self.dummy2),
+                             {'C2': []})
+
+        def cons_rule_4(model):
+            return model.X[2] <= -1
+
+        model.Cons2 = Constraint(rule=cons_rule_4)
+
+        child_inst.add_constraints('C3', model.Cons2)
+
+        self.assertEqual(child_inst.relaxation_solved(), False)
+
+        new_cons = child_inst.model().component('C3')
+        for c in new_cons:
+            child_inst.register_conshandler(new_cons[c].name, self.dummy1)
+        self.dummy1.add_constypes(['C3'])
+
+        # Infeasible case.
+        for relax_solver in self.relax_solver:
+            child_inst.solve_relaxation(relax_solver)
+
+            self.assertEqual(child_inst.relaxation_solved(), True)
+
+            self.assertEqual(child_inst.relax_termination_condition(),
+                             TerminationCondition.infeasible)
+            child_inst.relax_model()
+            self.assertEqual(child_inst.has_optimal_solution(), False)
+            self.assertEqual(child_inst.relax_infeasible(), True)
+            self.assertRaises(AssertionError, child_inst.feasible)
+            self.assertRaises(AssertionError,
+                              child_inst.objective_function_value)
+            self.assertRaises(AssertionError, child_inst.violated_sets,
+                              self.dummy1)
+            self.assertRaises(AssertionError, child_inst.nviolated,
+                              self.dummy2)
+
+        # Additional test: Change varbounds of a simple variable.
+        int_inst.change_varbounds('XS', lower_bound=0)
+
+        self.assertEqual(int_inst.model().component('XS').lb, 0)
 
 
 class ConsHandlerDummy1(ConsHandlerManager):
@@ -681,6 +826,18 @@ class ConsHandlerDummy1(ConsHandlerManager):
 class ConsHandlerDummy2(ConsHandlerManager):
     def name(self):
         return 'dummy2'
+
+def main():
+    suite1 = DiseaseEstimation()
+    suite1.setUp()
+    suite1.data_consistency_test()
+    suite1.setUp()
+    suite1.copy_depth_test()
+    suite1.setUp()
+    suite1.plugin_function_test()
+    suite2 = SimpleInstance()
+    suite2.setUp()
+    suite2.relaxation_solution_test()
 
 if __name__ == '__main__':
     unittest.main()

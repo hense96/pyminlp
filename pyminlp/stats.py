@@ -63,7 +63,7 @@ class Stats:
             out = '\nPyMINLP finished solving.\n'
         else:
             out = '\nPyMINLP is solving.\n'
-        out += '  Solving time: \t {:.4f} s\n'.format(time.clock()
+        out += '  Solving time: \t {:.3f} s\n'.format(time.clock()
                                                       - self.solver_start_time)
         out += '  Nodes: \t \t \t {}\n'.format(self.nnodes)
         out += '  Primal bound: \t {}\n'.format(self.upper)
@@ -85,6 +85,12 @@ class Stats:
         stats = cls._stats
         stats.solver_time = time.clock() - stats.solver_start_time
 
+        # Update bounds if possible.
+        if bnb._lower_bound > stats.lower:
+            stats.lower = bnb._lower_bound
+        if bnb._upper_bound > stats.upper:
+            stats.upper = bnb._upper_bound
+
         # Printing.
         if stats.verb == Verbosity.STANDARD:
             print(stats.standard_output(2))
@@ -98,13 +104,17 @@ class Stats:
         stats.node_start_time = time.clock()
         stats.nnodes += 1
 
+        # Update lower bound if possible.
+        if bnb._lower_bound > stats.lower:
+            stats.lower = bnb._lower_bound
+
         # Printing.
         if stats.verb == Verbosity.DEBUG:
             out = '\n--- NODE #{}, depth {} ---\n'.format(bnb._cur_node.number,
                                                           bnb._cur_node.depth)
             out += '   Primal bound: \t {}\n'.format(stats.upper)
             out += '   Dual bound: \t \t {}\n'.format(stats.lower)
-            out += '   Solving time: \t {:.4f} s\n'.format(
+            out += '   Solving time: \t {:.3f} s\n'.format(
                                         time.clock() - stats.solver_start_time)
             print(out)
 
@@ -114,13 +124,11 @@ class Stats:
         stats.node_time = time.clock() - stats.node_start_time
 
         # Update primal bound.
-        if bnb._best_node is not None:
-            best_sol = bnb._best_node.rel_sol_value()
-            if best_sol < stats.upper:
-                stats.upper = best_sol
+        if bnb._upper_bound < stats.upper:
+            stats.upper = bnb._upper_bound
 
         if stats.verb == Verbosity.DEBUG:
-            out = ' -> Finished node in {:.4f} s\n'.format(stats.node_time)
+            out = ' -> Finished node in {:.3f} s\n'.format(stats.node_time)
             if bnb._cur_node.branched:
                 reason = 'branching'
             elif bnb._cur_node.feasible():
@@ -140,26 +148,23 @@ class Stats:
         stats = cls._stats
         stats.rel_sol_start_time = time.clock()
 
+        # Update lower bound if possible.
+        if bnb._lower_bound > stats.lower:
+            stats.lower = bnb._lower_bound
+
+
     @classmethod
     def finish_rel_sol(cls, bnb):
         stats = cls._stats
         stats.rel_sol_time = time.clock() - stats.rel_sol_start_time
         stats.n_rel_sol += 1
 
-        # If root node, update dual bound.
-        # TODO dual bounds are not really implemented in my solver.
-        if bnb._cur_node is bnb._root_node \
-            and bnb._cur_node.has_optimal_solution():
-            rel_sol = bnb._cur_node.rel_sol_value()
-            if rel_sol > stats.lower:
-                stats.lower = rel_sol
-
         if stats.verb == Verbosity.STANDARD:
             if time.clock() - stats.last_print_time > stats.STANDARD_WAIT:
                 print(stats.standard_output(1))
                 stats.last_print_time = time.clock()
         elif stats.verb == Verbosity.DEBUG:
-            out = ' -> Solved relaxation in {:.4f} s\n'.format(
+            out = ' -> Solved relaxation in {:.3f} s\n'.format(
                                                       stats.rel_sol_time)
             if bnb._cur_node.relax_infeasible():
                 out += '   Result: infeasible'

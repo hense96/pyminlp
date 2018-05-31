@@ -1,4 +1,3 @@
-# Interface for the subproblem representation.
 
 
 import copy
@@ -15,8 +14,8 @@ class Instance:
     """
     An object of this class represents an optimisation problem instance.
     The objects are used to represent nodes in the branch and bound
-    tree. Information such as constraint classification data are
-    available. The class is the interface for everything related to
+    tree. Additional information such as constraint classification data
+    are available. The class is the interface for everything related to
     (sub-)problem representation.
 
     Private class attributes:
@@ -51,11 +50,9 @@ class Instance:
         """
         assert isinstance(py_model, Model)
         if not py_model.is_constructed():
-            raise ValueError('The Pyomo model {} is not'
+            raise ValueError('The Pyomo model {} is not '
                              'constructed.'.format(py_model))
         inst = Instance()
-        # TODO standardise all constraints to <= 0.. maybe offer option
-        # TODO to turn this off
         inst._init(py_model)
         return inst
 
@@ -139,8 +136,8 @@ class Instance:
     def relaxation_solved(self):
         """Returns True if the relaxation of the current Instance object
         has already been solved. If a manipulating function is called
-        (e.g. add_constraints) after solving the relaxation, this
-        function will return False.
+        (i.e. add_constraints, change_varbounds) after solving the
+        relaxation, this function will return False.
         :return: True if relaxation is solved, otherwise False.
         """
         return self._relax is not None
@@ -154,18 +151,24 @@ class Instance:
         return list
 
     def conshandler_sets(self, conshandler):
-        """Returns the sets of indices of the constraints that are
+        """Returns the sets of indices of the constraints that
         belong to the given constraint handler.
         The sets (represented by lists) are saved as the values of a
-        dict, where the keys is the resepctive constraint type of the
+        dict, where the keys is the respective constraint type of the
         constraint.
         If the constraint handler considers a constraint type, for
         which no constraint exists, an empty list will be in the return
         dict.
+        If a violated constraint is a SimpleConstraint without index,
+        the only index will be None.
 
         Example for a return value:
             {'Constype1':['index1, index2'], 'Constype2':[]}
+
+        :param conshandler: A ConsHandlerManager object.
+        :return: A dict.
         """
+        assert isinstance(conshandler, ConsHandlerManager)
         if conshandler.name() in self._classif.keys():
             conss = self._classif[conshandler.name()]
         else:
@@ -184,7 +187,8 @@ class Instance:
         :param constype: A string indicating the desired user defined
         constraint type. If unspecified or None, all constraint types
         are taken into consideration.
-        :return: A list of indices.
+        :return: A list of indices. For a SimpleConstraint without
+        index, the index will be None.
         """
         assert constype is None or type(constype) is str
         index_set = []
@@ -203,7 +207,7 @@ class Instance:
 
     def nunclassified(self):
         """Returns the number of constraints without constraint handler.
-        :return: Number of unclassified constraints.
+        :return: Number of unclassified constraints (int).
         """
         return len(self.unclassified())
 
@@ -213,7 +217,7 @@ class Instance:
         """Returns True if the solution of the relaxation of the
         instance is feasible for the instance.
         Precondition: The relaxation of the instance is solved and
-        has optimal solution.
+        has an optimal solution.
         :return: True or False.
         """
         assert self.relaxation_solved()
@@ -241,7 +245,7 @@ class Instance:
             == TerminationCondition.infeasible
 
     def relax_termination_condition(self):
-        """Returns the TerminationConidtion of the relaxation solver."""
+        """Returns the TerminationCondition of the relaxation solver."""
         assert self.relaxation_solved()
         return self._relax.termination_condition
 
@@ -249,7 +253,7 @@ class Instance:
         """Returns the optimal objective function value of the solved
         relaxation of the instance.
         Precondition: The relaxation of the instance is solved and
-        has optimal solution.
+        has an optimal solution.
         :return: An objective function value.
         """
         assert self.relaxation_solved()
@@ -262,12 +266,14 @@ class Instance:
         """Returns the sets of indices of the constraints that are
         violated by the solution of the relaxation of the instance.
         The sets (represented by lists) are saved as the values of a
-        dict, where the keys is the resepctive constraint type of the
+        dict, where the keys is the respective constraint type of the
         constraint.
         Only constraints that belong to the given constraint handler are
         considered. If the constraint handler considers a constraint
         type, for which no constraint is violated, an empty list will be
         in the return dict.
+        If a violated constraint is a SimpleConstraint without index,
+        the only index will be None.
 
         Example for a return value:
             {'Constype1':['index1, index2'], 'Constype2':[]}
@@ -275,19 +281,20 @@ class Instance:
         Precondition: The relaxation of the instance is solved and has
         optimal solution.
 
-        :param conshandler: A constraint handler manager object
-        indicating which constraints to consider.
+        :param conshandler: A ConsHandlerManager object indicating
+        which constraints to consider.
         :return: A dict.
         """
+        assert isinstance(conshandler, ConsHandlerManager)
         assert self.relaxation_solved()
         assert self.has_optimal_solution()
+        sets = {}
+        for constype in conshandler.constypes():
+            sets[constype] = []
         if conshandler.name() not in self._relax.violated.keys():
-            return {}
+            return sets
         else:
             conss = self._relax.violated[conshandler.name()]
-            sets = {}
-            for constype in conshandler.constypes():
-                sets[constype] = []
             for cons in conss:
                 sets[cons.constype].append(cons.index)
         return sets
@@ -299,6 +306,7 @@ class Instance:
         :param conshandler: A constraint handler object.
         :return: A number (int).
         """
+        assert isinstance(conshandler, ConsHandlerManager)
         assert self.relaxation_solved()
         assert self.has_optimal_solution()
         if conshandler.name() not in self._relax.violated.keys():
@@ -307,11 +315,14 @@ class Instance:
             return len(self._relax.violated[conshandler.name()])
 
     def solve_relaxation(self, solver, epsilon=None):
-        """Creates and solves the relaxation of the instance.
-        :param solver: The relaxation solver.
-        :param epsilon: The epsilon for determining whether a constraint
-        is violated.
+        """Creates and solves the relaxation of the instance. Moreover,
+        computes additional data related to the relaxation solution,
+        such as the sets of violated constraints.
+        :param solver: The Pyomo relaxation solver.
+        :param epsilon: The epsilon for determining whether a
+        constraint is violated.
         """
+        assert self.nunclassified() == 0
         # Firstly, create the relaxation.
         relax = self._model.clone()
         nonrel_cons = []
@@ -328,8 +339,8 @@ class Instance:
         # Secondly, solve the relaxation.
         res = solver.solve(relax)
         if res.solver.status != SolverStatus.ok:
-            # TODO more precisely.
-            raise Exception('Relaxation solver could not solve relaxation.')
+            raise PyomoException('Relaxation solver status after solving is '
+                                 '{}. Expected ok.'.format(res.solver.status))
         term_cond = res.solver.termination_condition
         self._relax = _Solution.create(model=relax,
                                        termination_condition=term_cond)
@@ -337,6 +348,7 @@ class Instance:
         if term_cond == TerminationCondition.optimal:
             # Firstly, postprocess relaxation.
             # If there is any variable without value, assign randomly.
+            # This also works for simple variables.
             for vartype in relax.component_objects(Var):
                 for v in vartype:
                     if vartype[v].value is None:
@@ -345,8 +357,9 @@ class Instance:
                         elif vartype[v].ub is not None:
                             vartype[v].value = vartype[v].ub
                         else:
-                            # TODO maybe rather raise exception here.
-                            vartype[v].value = 0
+                            raise ValueError('Variable {} has no bounds.'
+                                             ''.format(vartype[v]))
+                            # vartype[v].value = 0
             # Now iterate of all constraints.
             for (cons, py_cons) in nonrel_cons:
                 # Catch weird special case.
@@ -368,7 +381,7 @@ class Instance:
 
     def add_constraints(self, constype, constraints, params={}):
         """Add a new set of constraints and parameters to the internal
-        problem representation.
+        problem representation. Deletes any relaxation solution data.
         TODO try to eliminate this warning.
         WARNING: It is recommended not to add to constraint and
         parameter types that already exist in the initial model
@@ -564,7 +577,8 @@ class Instance:
         Instance._consadd_count += 1
 
     def change_varbounds(self, varname, lower_bound=None, upper_bound=None):
-        """Changes the bounds of a variable.
+        """Changes the bounds of a variable. Deletes any relaxation
+        solution data.
         :param varname: The name of the variable (string).
         :param lower_bound: The new lower bound. If unspecified or None,
         no changes are applied.
@@ -701,8 +715,12 @@ class Instance:
                         # Find new var object.
                         name, index = arg.name.split('[')
                         index = index[:-1]
-                        new_var = model.component(name)[index]
-                        expr._args[i] = new_var
+                        try:
+                            new_var = model.component(name)[index]
+                        except KeyError:
+                            new_var = model.component(name)[int(index)]
+                        finally:
+                            expr._args[i] = new_var
             return expr
         # Special cases.
         elif hasattr(expr, '_numerator') and hasattr(expr, '_denominator'):
@@ -770,7 +788,8 @@ class _Cons:
         """
         assert type(name) is str
         assert type(constype) is str
-        if not '{}[{}]'.format(constype, index) == name\
+        if (index is not None\
+            and not '{}[{}]'.format(constype, index) == name)\
             or not name == pyrep.name:
             raise ValueError('Parameter values do not match.')
         cons = _Cons()
@@ -915,3 +934,10 @@ class _Solution:
         else:
             self._violated[key] = [constraint]
         self._nviolated += 1
+
+
+class PyomoException(Exception):
+    """This class is an Exception for unexpected values that Pyomo
+    returns.
+    """
+    pass

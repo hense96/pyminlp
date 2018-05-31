@@ -26,8 +26,8 @@ class PyMINLP:
         # TODO maybe change so that only name required.
         self._coordinator.register_relaxation_solver(relaxation_solver)
 
-    def set_epsilon(self, epsilon):
-        self._coordinator.set_epsilon(epsilon)
+    def set_epsilon(self, gap_epsilon=None, constraint_epsilon=None):
+        self._coordinator.set_epsilon(gap_epsilon, constraint_epsilon)
 
     def set_verbosity(self, verbosity):
         self._coordinator.set_verbosity(verbosity)

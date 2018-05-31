@@ -68,7 +68,8 @@ class Coordinator:
         self._hdlrs_ident = []
         self._hdlrs_enf = []
         self._options = None
-        self._epsilon = None
+        self._gap_epsilon = None
+        self._cons_epsilon = None
         self._verbosity = None
         # References.
         self._bnb_tree = None
@@ -183,7 +184,7 @@ class Coordinator:
         """
         assert self._cur_instance is not None
         instance = self._cur_instance
-        instance.solve_relaxation(self._relaxation_solver, self._epsilon)
+        instance.solve_relaxation(self._relaxation_solver, self._cons_epsilon)
         return UserInputStatus.OK
 
     def enforce(self):
@@ -330,12 +331,16 @@ class Coordinator:
         """Registers a relaxation solver."""
         self._relaxation_solver = relaxation_solver
 
-    def set_epsilon(self, epsilon):
-        """Registers the epsilon for the solving process.
-        The epsilon is the tolerance applied to constraint bounds when
-        determining whether they are met or not.
+    def set_epsilon(self, gap_epsilon, cons_epsilon):
+        """Registers the epsilon values for the solving process.
+        :param gap_epsilon: When lower and upper bound of the optimal
+        objective function value of a (sub-)problem differ in less than
+        the gap epsilon, the (sub-)problem is considered solved.
+        :param cons_epsilon: The tolerance applied to constraint bounds
+        when determining whether they are met or not.
         """
-        self._epsilon = epsilon
+        self._gap_epsilon = gap_epsilon
+        self._cons_epsilon = cons_epsilon
 
     def set_verbosity(self, verbosity):
         """Sets the verbosity, i.e. the how much information regarding
@@ -355,7 +360,7 @@ class Coordinator:
         self._bnb_tree = BranchAndBound.create(self)
         self._bnb_tree.register_root_instance(instance)
         # Start solving process.
-        self._bnb_tree.execute()
+        self._bnb_tree.execute(self._gap_epsilon)
         print('Done')
 
 
