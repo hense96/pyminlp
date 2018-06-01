@@ -14,12 +14,12 @@ def foo(filename):
 
     # Set up solver.
     solver = PyMINLP()
-    solver.use_constraint_handler(name='linear', types=['Quadcons', 'Cuts'],
-                                  prio=1, relax=True)
-    solver.use_constraint_handler(name='quadconv', types=['Quadcons'],
-                                  prio=2, relax=False)
-    solver.use_constraint_handler(name='quadnonc', types=['Quadcons'],
-                                  prio=3, relax=False)
+    solver.use_constraint_handler(name='linear', constypes=['Quadcons', 'Cuts'],
+                                  identify_prio=1, relaxation=True)
+    solver.use_constraint_handler(name='quadconv', constypes=['Quadcons'],
+                                  identify_prio=2, relaxation=False)
+    solver.use_constraint_handler(name='quadnonc', constypes=['Quadcons'],
+                                  identify_prio=3, relaxation=False)
 
     solver.solve(model)
 

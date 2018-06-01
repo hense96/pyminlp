@@ -2,6 +2,7 @@
 
 
 import heapq
+from enum import Enum
 
 from pyminlp.subprob import Instance
 from pyminlp.bnb import BranchAndBound
@@ -48,6 +49,10 @@ class Coordinator:
                           conshandler name, value the object.
         _curdata      Stack of _Curdata objects, each object storing
                           needed current data one user function call.
+
+    Public class attributes:
+      4.: Status data
+        stage        The stage of the solving process.
     """
 
     @classmethod
@@ -77,6 +82,8 @@ class Coordinator:
         self._cur_instance = None
         self._hdlr_obj = {}
         self._curdata = []
+        # Status data.
+        self._stage = SolvingStage.SETUP
 
     # Interface functions for branch and bound.
 
@@ -261,7 +268,7 @@ class Coordinator:
             raise Exception('identify failed for constraints added in '
                             'prepare method.')
 
-    def branch(self, var=None, point=None):
+    def branch(self, var, point):
         """Function to perform branching on the current instance object.
         See solver module for precise explanation.
         """
@@ -271,14 +278,13 @@ class Coordinator:
         self._curdata.append(curdata)
         # TODO maybe allow more sophisticated branching expressions.
         # Perform operation.
-        if var is not None and point is not None:
-            left = Instance.derive_instance(instance)
-            left.change_varbounds(var, upper_bound=point)
-            right = Instance.derive_instance(instance)
-            right.change_varbounds(var, lower_bound=point)
-            # Update current data.
-            curdata.add_child(left)
-            curdata.add_child(right)
+        left = Instance.derive_instance(instance)
+        left.change_varbounds(var, upper_bound=point)
+        right = Instance.derive_instance(instance)
+        right.change_varbounds(var, lower_bound=point)
+        # Update current data.
+        curdata.add_child(left)
+        curdata.add_child(right)
         curdata.set_branched()
 
     def change_bounds(self, var, lower=None, upper=None):
@@ -320,7 +326,7 @@ class Coordinator:
 
     def add_conshandler(self, conshandler):
         """Function to register that a conshandler is used.
-        :param conshandler: A ConsHandler object.
+        :param conshandler: A ConsHandlerManager object.
         """
         heapq.heappush(self._hdlrs_ident,
                        (conshandler.identify_prio(), conshandler))
@@ -331,16 +337,21 @@ class Coordinator:
         """Registers a relaxation solver."""
         self._relaxation_solver = relaxation_solver
 
-    def set_epsilon(self, gap_epsilon, cons_epsilon):
-        """Registers the epsilon values for the solving process.
-        :param gap_epsilon: When lower and upper bound of the optimal
+    def set_gap_epsilon(self, epsilon):
+        """Registers the gap epsilon value for the solving process.
+        :param epsilon: When lower and upper bound of the optimal
         objective function value of a (sub-)problem differ in less than
         the gap epsilon, the (sub-)problem is considered solved.
-        :param cons_epsilon: The tolerance applied to constraint bounds
+        """
+        self._gap_epsilon = epsilon
+
+    def set_cons_epsilon(self, epsilon):
+        """Registers the constraint epsilon value for the solving
+        process.
+        :param epsilon: The tolerance applied to constraint bounds
         when determining whether they are met or not.
         """
-        self._gap_epsilon = gap_epsilon
-        self._cons_epsilon = cons_epsilon
+        self._cons_epsilon = epsilon
 
     def set_verbosity(self, verbosity):
         """Sets the verbosity, i.e. the how much information regarding
@@ -359,9 +370,54 @@ class Coordinator:
         # Create bnb_tree.
         self._bnb_tree = BranchAndBound.create(self)
         self._bnb_tree.register_root_instance(instance)
+        # Check sanity of user setup.
+        self._check_setup_sanity(instance)
         # Start solving process.
+        self._stage = SolvingStage.SOLVING
         self._bnb_tree.execute(self._gap_epsilon)
+        self._stage = SolvingStage.DONE
         print('Done')
+
+    # Information for solver interface.
+
+    @property
+    def stage(self):
+        return self._stage
+
+    # Miscellaneous functions.
+
+    def _check_setup_sanity(self, instance):
+        """Checks whether the minimum solver set up requirements for
+        solving an instance are fulfilled.
+
+        :param instance: The instance object belonging to the root node.
+        """
+        # Check if constraint handlers cover all constraint types.
+        constypes_inst = set(instance.constypes())
+        constypes_hdlrs = set([])
+        for (_, hdlr) in self._hdlrs_ident:
+            cur_types = hdlr.constypes()
+            for type in cur_types:
+                constypes_hdlrs.add(type)
+        if constypes_inst != constypes_hdlrs:
+            diff = constypes_inst.difference(constypes_hdlrs)
+            if len(diff) > 0:
+                raise ValueError('No constraint handler covers the following '
+                                 'constraint types: {}.'.format(diff))
+        # Check if a relaxation solver is registered.
+        if self._relaxation_solver is None:
+            raise ValueError('No relaxation solver is set.')
+
+
+class SolvingStage(Enum):
+    """Enumeration for the stage of the solving process."""
+    SETUP = 1
+    SOLVING = 2
+    DONE = 3
+
+
+class SolvingStageError(Exception):
+    pass
 
 
 class _CurrentData:

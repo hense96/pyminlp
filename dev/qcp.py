@@ -13,20 +13,20 @@ def foo(filename):
     solver = PyMINLP()
 
     solver.use_constraint_handler(name='linear',
-                                  types=['Quadcons1', 'Quadcons2', 'Cut'],
+                                  constypes=['Quadcons1', 'Quadcons2', 'Cut'],
                                   identify_prio=1,
                                   enforce_prio=1,
-                                  relax=True)
+                                  relaxation=True)
     solver.use_constraint_handler(name='quadconv',
-                                  types=['Quadcons1', 'Quadcons2'],
+                                  constypes=['Quadcons1', 'Quadcons2'],
                                   identify_prio=2,
                                   enforce_prio=2,
-                                  relax=False)
+                                  relaxation=False)
     solver.use_constraint_handler(name='quadnonc',
-                                  types=['Quadcons1', 'Quadcons2'],
+                                  constypes=['Quadcons1', 'Quadcons2'],
                                   identify_prio=3,
                                   enforce_prio=3,
-                                  relax=False)
+                                  relaxation=False)
 
     relax_solver = SolverFactory('cbc')
     solver.set_relaxation_solver(relax_solver)

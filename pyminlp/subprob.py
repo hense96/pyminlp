@@ -428,7 +428,6 @@ class Instance:
 
             - The new unique constraint indices are saved in a SimpleSet
             called '_{constype}_Set' and added to the internal model.
-
         """
         assert type(constype) is str
         assert isinstance(constraints, Constraint)
