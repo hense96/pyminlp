@@ -134,13 +134,13 @@ class Coordinator:
             # TODO more precisely.
             if curdata.ncuts > 0 or curdata.ntighten > 0 or curdata.branched\
                     or curdata.infeasible:
-                raise Exception('Unallowed interface operation during '
-                                'identify process.')
+                raise UserInputError('Unallowed interface operation during '
+                                     'identify process.')
         if instance.nunclassified() == 0:
             return UserInputStatus.OK
         else:
-            raise Exception('After calling all constraint handlers, '
-                            'there are still unclassified constraints.')
+            raise UserInputError('After calling all constraint handlers, '
+                                 'there are still unclassified constraints.')
 
     def prepare(self):
         """Calls the prepare methods of the constraint handlers for
@@ -179,8 +179,10 @@ class Coordinator:
             if curdata.infeasible:
                 return UserInputStatus.INFEASIBLE
             elif curdata.branched:
-                raise Exception('Unallowed interface operation during '
-                                'prepare process.')
+                return UserInputStatus.BRANCHED
+            elif curdata.nmatched > 0:
+                raise UserInputError('Unallowed interface operation during '
+                                     'prepare process.')
         return UserInputStatus.OK
 
     def solve_relaxation(self):
@@ -237,7 +239,8 @@ class Coordinator:
                 elif curdata.ncuts > 0 or curdata.ntighten > 0:
                     return UserInputStatus.RESOLVE
 
-        raise Exception('enforce failed.')
+        raise UserInputError('Enforcement failed. No constraint handler '
+                             'called an interface function.')
 
     # Miscellaneous functions.
 
@@ -265,8 +268,8 @@ class Coordinator:
         # Follow up operations.
         res = self.identify()
         if res != UserInputStatus.OK:
-            raise Exception('identify failed for constraints added in '
-                            'prepare method.')
+            raise UserInputError('identify failed for constraints added in '
+                                 'prepare method.')
 
     def branch(self, var, point):
         """Function to perform branching on the current instance object.
@@ -328,6 +331,11 @@ class Coordinator:
         """Function to register that a conshandler is used.
         :param conshandler: A ConsHandlerManager object.
         """
+        # Check if handler is already included.
+        for (_, hdlr) in self._hdlrs_ident:
+            if hdlr.name() == conshandler.name():
+                raise ValueError('Constraint handler {} is already included.'
+                                 ''.format(conshandler.name()))
         heapq.heappush(self._hdlrs_ident,
                        (conshandler.identify_prio(), conshandler))
         heapq.heappush(self._hdlrs_enf,
@@ -417,6 +425,10 @@ class SolvingStage(Enum):
 
 
 class SolvingStageError(Exception):
+    pass
+
+
+class UserInputError(Exception):
     pass
 
 

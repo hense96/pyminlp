@@ -8,6 +8,7 @@ from pyminlp.conshdlr import ConsHandlerManager
 from pyminlp.hub import Coordinator
 from pyminlp.hub import SolvingStage
 from pyminlp.hub import SolvingStageError
+from pyminlp.hub import UserInputError
 
 
 class PyMINLP:
@@ -41,7 +42,6 @@ class PyMINLP:
         for hdlr in self._known_hdlrs:
             # TODO find a better way for that.
             hdlr.solver = self
-        self._used_hdlrs = []
 
     # Functions for the set up.
 
@@ -63,7 +63,7 @@ class PyMINLP:
         :param relaxation_solver: A suitable solver object.
         """
         # Check if relaxation solver has a solve function.
-        solve_fct = getattr(self, "solve", None)
+        solve_fct = getattr(relaxation_solver, 'solve', None)
         if not callable(solve_fct):
             raise ValueError('Given relaxation solver does not have a '
                              'solve(model) function for solving '
