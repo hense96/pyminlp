@@ -10,10 +10,13 @@ import random
 
 from pyomo.environ import *
 
-from pyminlp.conshdlr import ConsHandler
+from pyutilib.component.core import *
+
+from pyminlp.conshdlr import IPyMINLPConsHandler
 
 
-class LinearHandler(ConsHandler):
+class LinearHandler(SingletonPlugin):
+    implements(IPyMINLPConsHandler)
     """Handler for all linear constraints."""
 
     @classmethod
@@ -24,7 +27,7 @@ class LinearHandler(ConsHandler):
     def name(cls):
         return 'linear'
 
-    def identify(self, sets, model):
+    def identify(self, sets, model, solver):
         # Iterate over all constraint representation types.
         for constype in sets:
             set = sets[constype]
@@ -33,7 +36,7 @@ class LinearHandler(ConsHandler):
             if constype == 'Cut':
                 for index in set:
                     cons = model.Cut[index]
-                    self.solver.match(cons.name)
+                    solver.match(cons.name)
 
             # For each quadratic constraint, check if the quadratic part
             # is zero.
@@ -42,16 +45,17 @@ class LinearHandler(ConsHandler):
                     cons = model.component(constype)[index]
                     A = _get_numpy_rep(model, model.A, 2, index)
                     if _is_zero(A):
-                        self.solver.match(cons.name)
+                        solver.match(cons.name)
 
-    def prepare(self, sets, model):
+    def prepare(self, sets, model, solver):
         pass
 
-    def enforce(self, sets, model):
+    def enforce(self, sets, model, solver):
         pass
 
 
-class QuadConvHandler(ConsHandler):
+class QuadConvHandler(SingletonPlugin):
+    implements(IPyMINLPConsHandler)
     """Handler for all convex quadratic constraints."""
 
     @classmethod
@@ -62,7 +66,7 @@ class QuadConvHandler(ConsHandler):
     def name(cls):
         return 'quadconv'
 
-    def identify(self, sets, model):
+    def identify(self, sets, model, solver):
         """Identifies convexity using the notion of positive
         semidefiniteness."""
         # Iterate over all constraint representation types.
@@ -76,20 +80,20 @@ class QuadConvHandler(ConsHandler):
                 A = _get_numpy_rep(model, model.A, 2, index)
                 if (constype == 'Quadcons1' and _is_psd(A)) \
                    or (constype == 'Quadcons2' and _is_psd(-A)):
-                    self.solver.match(cons.name)
+                    solver.match(cons.name)
 
-    def prepare(self, sets, model):
+    def prepare(self, sets, model, solver):
         pass
 
-    def enforce(self, sets, model):
+    def enforce(self, sets, model, solver):
         """Firstly calls a separation method that adds cuts,
         then a tighten method that tightens bounds."""
-        self.separate(sets, model)
-        #self.tighten(model)
+        self.separate(sets, model, solver)
+        #self.tighten(model, solver)
 
     # Own functions.
 
-    def separate(self, sets, model):
+    def separate(self, sets, model, solver):
         """Separation method for quadratic constraints using a linear
         underestimation of the constraints at the solution point."""
         # Iterate over all constraint representation types.
@@ -125,16 +129,16 @@ class QuadConvHandler(ConsHandler):
                 model.Cut_new = Constraint(rule=linear_rule)
 
                 # Use interface function to add constraint.
-                self.solver.add_constraints(constype='Cut',
-                                            constraints=model.Cut_new,
-                                            params={'an': model.a_new,
-                                                    'cn': model.c_new})
+                solver.add_constraints(constype='Cut',
+                                       constraints=model.Cut_new,
+                                       params={'an': model.a_new,
+                                               'cn': model.c_new})
 
                 model.del_component('a_new')
                 model.del_component('c_new')
                 model.del_component('Cut_new')
 
-    def tighten(self, model):
+    def tighten(self, model, solver):
         """This is dummy function to test the tighten_bounds interface
         function. It only works for the minlplib_st_e30 instance, where
         the actual varbounds of X[x11], X[x12], X[x13] are 0 and 3."""
@@ -142,19 +146,20 @@ class QuadConvHandler(ConsHandler):
         for index in index_set:
             lb = model.X[index].lb
             if lb <= -1:
-                self.solver.change_bounds(model.X[index].name, lower=(lb + 1))
+                solver.change_bounds(model.X[index].name, lower=(lb + 1))
             elif lb < 0:
-                self.solver.change_bounds(model.X[index].name, lower=0)
+                solver.change_bounds(model.X[index].name, lower=0)
             else:
                 ub = model.X[index].ub
                 if ub >= 4:
-                    self.solver.change_bounds(model.X[index].name,
+                    solver.change_bounds(model.X[index].name,
                                              lower=(ub - 1))
                 elif ub > 3:
-                    self.solver.change_bounds(model.X[index].name, lower=3)
+                    solver.change_bounds(model.X[index].name, lower=3)
 
 
-class QuadNoncHandler(ConsHandler):
+class QuadNoncHandler(SingletonPlugin):
+    implements(IPyMINLPConsHandler)
     """Handler for all non-convex quadratic constraints."""
 
     def __init__(self):
@@ -168,28 +173,28 @@ class QuadNoncHandler(ConsHandler):
     def name(cls):
         return 'quadnonc'
 
-    def identify(self, sets, model):
+    def identify(self, sets, model, solver):
         """All leftover constraints are considered nonconvex."""
         # Match any constraint.
         for constype in sets:
             set = sets[constype]
             for index in set:
                 cons = model.component(constype)[index]
-                self.solver.match(cons.name)
+                solver.match(cons.name)
 
-    def prepare(self, sets, model):
+    def prepare(self, sets, model, solver):
         """Call the tighten method."""
-        #self.tighten(model)
+        #self.tighten(model, solver)
 
-    def enforce(self, sets, model):
+    def enforce(self, sets, model, solver):
         """Add McCormick underestimators, try to solve again,
         then branch."""
-        self.mccormick(sets, model)
+        self.mccormick(sets, model, solver)
         if self._count_enforce > -1:
-            self.branch(sets, model)
+            self.branch(sets, model, solver)
         self._count_enforce += 1
 
-    def branch(self, sets, model):
+    def branch(self, sets, model, solver):
         """Branching strategy. If no branching variable found,
         declare infeasibility."""
         # Do computations to find branching variable and point.
@@ -212,7 +217,7 @@ class QuadNoncHandler(ConsHandler):
         elif len(linvar) > 0:
             var = random.choice(linvar)
         else:
-            self.solver.declare_infeasible()
+            solver.declare_infeasible()
             return
 
         xb = value(model.X[var])
@@ -226,10 +231,9 @@ class QuadNoncHandler(ConsHandler):
             elif (xu - xb) / (xu - xl) <= thresh:
                 xb = xl + (1.0 - thresh) * (xu - xl)
 
-        self.solver.branch(model.X[var].name, xb)
+        solver.branch(model.X[var].name, xb)
 
-
-    def mccormick(self, sets, model):
+    def mccormick(self, sets, model, solver):
         """Create McCormick underestimators."""
         # Iterate over all constraint representation types.
         for constype in sets.keys():
@@ -264,7 +268,7 @@ class QuadNoncHandler(ConsHandler):
                 model.Cut_new = Constraint(rule=linear_rule)
 
                 # Use interface function to add constraint.
-                self.solver.add_constraints(constype='Cut',
+                solver.add_constraints(constype='Cut',
                                             constraints=model.Cut_new,
                                             params={'an': model.a_new,
                                                     'cn': model.c_new})
@@ -273,7 +277,7 @@ class QuadNoncHandler(ConsHandler):
                 model.del_component('c_new')
                 model.del_component('Cut_new')
 
-    def tighten(self, model):
+    def tighten(self, model, solver):
         """This is dummy function to test the tighten_bounds interface
         function. It only works for the minlplib_st_e30 instance, where
         the actual varbounds of X[x11], X[x12], X[x13] are 0 and 3."""
@@ -281,16 +285,16 @@ class QuadNoncHandler(ConsHandler):
         for index in index_set:
             lb = model.X[index].lb
             if lb <= -1:
-                self.solver.change_bounds(model.X[index].name, lower=(lb + 1))
+                solver.change_bounds(model.X[index].name, lower=(lb + 1))
             elif lb < 0:
-                self.solver.change_bounds(model.X[index].name, lower=0)
+                solver.change_bounds(model.X[index].name, lower=0)
             else:
                 ub = model.X[index].ub
                 if ub >= 4:
-                    self.solver.change_bounds(model.X[index].name,
-                                             lower=(ub - 1))
+                    solver.change_bounds(model.X[index].name,
+                                         lower=(ub - 1))
                 elif ub > 3:
-                    self.solver.change_bounds(model.X[index].name, lower=3)
+                    solver.change_bounds(model.X[index].name, lower=3)
 
     def _compute_mccormick_params(self, A, b, c, x, xl, xu):
         """Parameter computation for McCormick underestimators."""

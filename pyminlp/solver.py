@@ -4,7 +4,6 @@
 
 from pyomo.environ import *
 
-from pyminlp.conshdlr import ConsHandlerManager
 from pyminlp.hub import Coordinator
 from pyminlp.hub import SolvingStage
 from pyminlp.hub import SolvingStageError
@@ -28,20 +27,11 @@ class PyMINLP:
     Private class attributes:
         _coordinator    Reference to the coordinator object that is
                             responsible for processing the user input.
-        _handlers       TODO generate plugin structure.
     """
 
     def __init__(self):
         """Constructor function setting up the attributes."""
-        self._coordinator = Coordinator.create()
-        # TODO implement this as a plugin.
-        self._known_hdlrs = []
-        self._known_hdlrs.append(ConsHandlerManager.create('linear'))
-        self._known_hdlrs.append(ConsHandlerManager.create('quadconv'))
-        self._known_hdlrs.append(ConsHandlerManager.create('quadnonc'))
-        for hdlr in self._known_hdlrs:
-            # TODO find a better way for that.
-            hdlr.solver = self
+        self._coordinator = Coordinator.create(self)
 
     # Functions for the set up.
 
@@ -137,8 +127,8 @@ class PyMINLP:
 
         Preconditions: Solving stage needs to be SETUP.
 
-        :param name: The user defined name of the constraint handler
-        (string).
+        :param name: The user defined class name of the constraint
+        handler (string).
         :param constypes: A list of constraint types (strings) the
         the constraint handler should consider.
         :param identify_prio: The priority for the identify methods
@@ -176,18 +166,11 @@ class PyMINLP:
         if not stage == SolvingStage.SETUP:
             raise SolvingStageError('Can not call this function in solving '
                                     'stage {}. Expected SETUP.'.format(stage))
-        # Find handler and add.
-        # TODO different once this is a plugin.
-        for hdlr in self._known_hdlrs:
-            if hdlr.name() == name:
-                hdlr.set_relax(relaxation)
-                hdlr.add_constypes(constypes)
-                if enforce_prio is None:
-                    hdlr.set_prio(identify_prio, identify_prio)
-                else:
-                    hdlr.set_prio(identify_prio, enforce_prio)
-                self._coordinator.add_conshandler(hdlr)
-                break
+        # Call the internal function.
+        if enforce_prio is None:
+            enforce_prio = identify_prio
+        self._coordinator.add_conshandler(name, constypes, identify_prio,
+                                          enforce_prio, relaxation)
 
     # Functions for solving.
 

@@ -10,6 +10,8 @@ from pyomo.opt.results.solver import TerminationCondition, SolverStatus
 import pyomo.core.kernel
 from pyomo.environ import *
 
+from pyminlp.conshdlr import *
+
 from pyminlp.subprob import Instance
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus
@@ -34,6 +36,9 @@ class Coordinator:
                           about the result of the solving process.
         _relaxation_solver
                       The user given relaxation solver object.
+        _plugin_list  The list of known constraint handlers, i.e.
+                          user defined IPyMINLPConsHandler service
+                          objects.
         _hdlrs_ident  The priorised heapq of used constraint handlers
                           ordered by identify priority.
                           Elements on this list have the format:
@@ -48,6 +53,7 @@ class Coordinator:
       2.: References
         _bnb_tree     The branch and bound algorithm object
                           (BranchAndBound object)
+        _solver       The solver interface object.
       3.: Current data
         _cur_instance The Instance object that the solver is currently
                           working on.
@@ -64,13 +70,14 @@ class Coordinator:
     """
 
     @classmethod
-    def create(cls, relaxation_solver=None, options=None):
+    def create(cls, solver):
         """Factory method to generate a new Coordinator object.
         Parameters as described above.
         """
         coord = Coordinator()
-        coord._relaxation_solver = relaxation_solver
-        coord._options = options
+        coord._solver = solver
+        # Set up plugin structure.
+        coord._plugin_list = ExtensionPoint(IPyMINLPConsHandler)
         return coord
 
     def __init__(self):
@@ -79,6 +86,7 @@ class Coordinator:
         self._py_model = None
         self._result = None
         self._relaxation_solver = None
+        self._plugin_list = None
         self._hdlrs_ident = []
         self._hdlrs_enf = []
         self._options = None
@@ -87,6 +95,7 @@ class Coordinator:
         self._verbosity = None
         # References.
         self._bnb_tree = None
+        self._solver = None
         # Current data.
         self._cur_instance = None
         self._hdlr_obj = {}
@@ -134,13 +143,12 @@ class Coordinator:
             curdata = _CurrentData.create(hdlr)
             # Call identify method.
             self._curdata.append(curdata)
-            self._get_hdlr(hdlr).identify(sets, model)
+            self._get_hdlr(hdlr).identify(sets, model, self._solver)
             self._curdata.pop()
 
             Stats.identify(self, curdata)
 
             # Handle user input.
-            # TODO more precisely.
             if curdata.ncuts > 0 or curdata.ntighten > 0 or curdata.branched\
                     or curdata.infeasible:
                 raise UserInputError('Unallowed interface operation during '
@@ -177,14 +185,12 @@ class Coordinator:
             curdata = _CurrentData.create(hdlr)
             # Call prepare method.
             self._curdata.append(curdata)
-            self._get_hdlr(hdlr).prepare(sets, model)
+            self._get_hdlr(hdlr).prepare(sets, model, self._solver)
             self._curdata.pop()
 
             Stats.prepare(self, curdata)
 
             # Handle user input.
-            # TODO Exception more precisely.
-            # TODO handle other cases, e.g. direct branching.
             if curdata.infeasible:
                 return UserInputStatus.INFEASIBLE
             elif curdata.branched:
@@ -234,7 +240,7 @@ class Coordinator:
                 curdata = _CurrentData.create(hdlr)
                 # Call enforce method.
                 self._curdata.append(curdata)
-                self._get_hdlr(hdlr).enforce(sets, model)
+                self._get_hdlr(hdlr).enforce(sets, model, self._solver)
                 self._curdata.append(curdata)
 
                 Stats.separate(self, curdata)
@@ -250,15 +256,6 @@ class Coordinator:
 
         raise UserInputError('Enforcement failed. No constraint handler '
                              'called an interface function.')
-
-    # Miscellaneous functions.
-
-    def _get_hdlr(self, conshandler):
-        """Returns the current handler object of the given constraint
-        handler manager.
-        """
-        assert conshandler.name() in self._hdlr_obj.keys()
-        return self._hdlr_obj[conshandler.name()]
 
     # Interface functions for plugin functions.
 
@@ -288,7 +285,6 @@ class Coordinator:
         instance = self._cur_instance
         curdata = self._curdata.pop()
         self._curdata.append(curdata)
-        # TODO maybe allow more sophisticated branching expressions.
         # Perform operation.
         left = Instance.derive_instance(instance)
         left.change_varbounds(var, upper_bound=point)
@@ -336,19 +332,29 @@ class Coordinator:
 
     # Interface functions for solver setup.
 
-    def add_conshandler(self, conshandler):
-        """Function to register that a conshandler is used.
-        :param conshandler: A ConsHandlerManager object.
+    def add_conshandler(self, name, constypes, id_prio, enf_prio, relax):
+        """Function to register that a conshandler is used. See solver
+        module for precise explanation.
         """
         # Check if handler is already included.
         for (_, hdlr) in self._hdlrs_ident:
-            if hdlr.name() == conshandler.name():
+            if hdlr.name() == name:
                 raise ValueError('Constraint handler {} is already included.'
-                                 ''.format(conshandler.name()))
-        heapq.heappush(self._hdlrs_ident,
-                       (conshandler.identify_prio(), conshandler))
-        heapq.heappush(self._hdlrs_enf,
-                       (conshandler.enforce_prio(), conshandler))
+                                 ''.format(name))
+        # New plugin structure.
+        for plugin in self._plugin_list:
+            if name == plugin.name:
+                self._check_plugin_sanity(plugin)
+                hdlr = ConsHandlerManager.create(name, constypes, id_prio,
+                                                 enf_prio, relax, plugin)
+                # Old plugin structure.
+                heapq.heappush(self._hdlrs_ident,
+                               (hdlr.identify_prio(), hdlr))
+                heapq.heappush(self._hdlrs_enf,
+                               (hdlr.enforce_prio(), hdlr))
+                return
+        raise ValueError('Constraint handler {} is not known.'
+                         ''.format(name))
 
     def register_relaxation_solver(self, relaxation_solver):
         """Registers a relaxation solver."""
@@ -404,6 +410,19 @@ class Coordinator:
 
     # Miscellaneous functions.
 
+    def _check_plugin_sanity(self, plugin):
+        """Checks whether the given user plugin fulfills syntactical
+        requirements.
+        :param plugin: A service object for IPyMINLPConsHandler.
+        """
+        # Check if plugin has all required functions.
+        for method in ['identify', 'prepare', 'enforce']:
+            if not hasattr(plugin, method) \
+                   or not callable(getattr(plugin, method)):
+                raise UserInputError('The constraint handler {} does not '
+                                     'implement a {} method.'
+                                     ''.format(plugin.name, method))
+
     def _check_setup_sanity(self, instance):
         """Checks whether the minimum solver set up requirements for
         solving an instance are fulfilled.
@@ -425,6 +444,13 @@ class Coordinator:
         # Check if a relaxation solver is registered.
         if self._relaxation_solver is None:
             raise ValueError('No relaxation solver is set.')
+
+    def _get_hdlr(self, conshandler):
+        """Returns the current handler object of the given constraint
+        handler manager.
+        """
+        assert conshandler.name() in self._hdlr_obj.keys()
+        return self._hdlr_obj[conshandler.name()]
 
     def _postprocess(self):
         """Create a SolverResult object, save it as _result and write
@@ -468,11 +494,11 @@ class Coordinator:
         self._result.problem.name = self._py_model.name
         self._result.problem.number_of_constraints = \
             self._py_model.nconstraints()
-        #self._result.problem.number_of_nonzeros = None
+        # self._result.problem.number_of_nonzeros = None
         self._result.problem.number_of_variables = self._py_model.nvariables()
-        #self._result.problem.number_of_binary_variables = None
-        #self._result.problem.number_of_integer_variables = None
-        #self._result.problem.number_of_continuous_variables = None
+        # self._result.problem.number_of_binary_variables = None
+        # self._result.problem.number_of_integer_variables = None
+        # self._result.problem.number_of_continuous_variables = None
         self._result.problem.number_of_objectives = \
             self._py_model.nobjectives()
 

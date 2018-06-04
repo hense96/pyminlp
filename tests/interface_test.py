@@ -7,7 +7,7 @@ from pyminlp.solver import PyMINLP
 from pyminlp.hub import SolvingStage
 from pyminlp.hub import SolvingStageError
 from pyminlp.hub import UserInputError
-from pyminlp.conshdlr import ConsHandlerManager, ConsHandler
+from pyminlp.conshdlr import ConsHandlerManager, IPyMINLPConsHandler
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus
 from pyminlp.subprob import Instance
@@ -179,7 +179,7 @@ class InputTest(unittest.TestCase):
         self.assertRaises(UserInputError, coord.prepare)
 
 
-class ConsHandler1(ConsHandler):
+class ConsHandler1(IPyMINLPConsHandler):
 
     _test = None
     _mode = 0
@@ -241,7 +241,7 @@ class ConsHandler1(ConsHandler):
             return
 
 
-class ConsHandler2(ConsHandler):
+class ConsHandler2(IPyMINLPConsHandler):
 
     _test = None
     _mode = 0
@@ -254,7 +254,7 @@ class ConsHandler2(ConsHandler):
     def name(cls):
         return '#2'
 
-    def identify(self, sets, model):
+    def identify(self, sets, model, solver):
         test = ConsHandler1._test
         solver = test.solver
         if ConsHandler1._mode != 0:
@@ -263,10 +263,10 @@ class ConsHandler2(ConsHandler):
                 for index in indices:
                     solver.match(model.component(type)[index])
 
-    def prepare(self, sets, model):
+    def prepare(self, sets, model, solver):
         if ConsHandler2._mode == 1 or ConsHandler2._mode == 2:
             raise Exception('Should not be reached')
 
-    def enforce(self, sets, model):
+    def enforce(self, sets, model, solver):
         if ConsHandler2._mode == 1 or ConsHandler2._mode == 2:
             raise Exception('Should not be reached')

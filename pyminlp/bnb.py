@@ -319,6 +319,8 @@ class _Node:
         node = _Node()
         node._instance = instance
         node._number = _Node._node_count
+        # node._instance.set_name('{}'.format(_Node._node_count))
+        node._instance.set_name(_Node._node_count)
         _Node._node_count += 1
         if parent_node is not None:
             node._depth = parent_node._depth + 1

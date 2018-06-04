@@ -12,17 +12,17 @@ def foo(filename):
     # Set up solver.
     solver = PyMINLP()
 
-    solver.use_constraint_handler(name='linear',
+    solver.use_constraint_handler(name='LinearHandler',
                                   constypes=['Quadcons1', 'Quadcons2', 'Cut'],
                                   identify_prio=1,
                                   enforce_prio=1,
                                   relaxation=True)
-    solver.use_constraint_handler(name='quadconv',
+    solver.use_constraint_handler(name='QuadConvHandler',
                                   constypes=['Quadcons1', 'Quadcons2'],
                                   identify_prio=2,
                                   enforce_prio=2,
                                   relaxation=False)
-    solver.use_constraint_handler(name='quadnonc',
+    solver.use_constraint_handler(name='QuadNoncHandler',
                                   constypes=['Quadcons1', 'Quadcons2'],
                                   identify_prio=3,
                                   enforce_prio=3,
@@ -35,7 +35,7 @@ def foo(filename):
 
     res = solver.solve(model)
 
-    print(res)
+    # print(res)
 
 
 def plugin_simulation(model, solver):

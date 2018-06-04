@@ -113,6 +113,14 @@ class Instance:
             inst._classif[key] = copy.copy(self._classif[key])
         return inst
 
+    def set_name(self, name):
+        """Sets the name attribute of the internal Pyomo models of this
+        instance.
+        Precondition: The relaxation is not solved.
+        :param name: A name (not necessarily a string)."""
+        assert not self.relaxation_solved()
+        self._model.name = name
+
     # Functions for providing data.
 
     def model(self):
@@ -212,24 +220,6 @@ class Instance:
         return len(self.unclassified())
 
     # Interface functions for solving process modules.
-
-    def write_solution(self, py_model):
-        """Write the variable values of the solution of the relaxation
-        onto the given Pyomo ConreteModel.
-        Precondition: The relaxation of the instance is solved and
-        has an optimal solution.
-        :param py_model: A Pyomo ConcreteModel having all variables
-        that this instance has.
-        """
-        assert type(py_model) is ConcreteModel
-        assert self.relaxation_solved()
-        assert self.has_optimal_solution()
-        sol = self.relax_model()
-        for vartype in sol.component_objects(Var):
-            for v in vartype:
-                model_var = py_model.component(vartype.name)[v]
-                model_var.value = value(vartype[v])
-
 
     def feasible(self):
         """Returns True if the solution of the relaxation of the
@@ -396,6 +386,23 @@ class Instance:
                     # TODO maybe consider special cases such as strict
                     # TODO constraints or non-numerical bounds?
                     self._relax.add_violated(cons)
+
+    def write_solution(self, py_model):
+        """Write the variable values of the solution of the relaxation
+        onto the given Pyomo ConreteModel.
+        Precondition: The relaxation of the instance is solved and
+        has an optimal solution.
+        :param py_model: A Pyomo ConcreteModel having all variables
+        that this instance has.
+        """
+        assert type(py_model) is ConcreteModel
+        assert self.relaxation_solved()
+        assert self.has_optimal_solution()
+        sol = self.relax_model()
+        for vartype in sol.component_objects(Var):
+            for v in vartype:
+                model_var = py_model.component(vartype.name)[v]
+                model_var.value = value(vartype[v])
 
     # Interface functions for constraint handler plugins.
 
@@ -771,6 +778,13 @@ class Instance:
                             ' expr.')
 
 
+class PyomoException(Exception):
+    """This class is an Exception for unexpected values that Pyomo
+    returns.
+    """
+    pass
+
+
 class _Cons:
     """
     This internal class stores additional constraint data that are not
@@ -953,10 +967,3 @@ class _Solution:
         else:
             self._violated[key] = [constraint]
         self._nviolated += 1
-
-
-class PyomoException(Exception):
-    """This class is an Exception for unexpected values that Pyomo
-    returns.
-    """
-    pass
