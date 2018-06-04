@@ -1,13 +1,20 @@
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
+
 
 import unittest
 
 from pyomo.environ import *
 
+from pyutilib.component.core import *
+
 from pyminlp.solver import PyMINLP
 from pyminlp.hub import SolvingStage
 from pyminlp.hub import SolvingStageError
 from pyminlp.hub import UserInputError
-from pyminlp.conshdlr import ConsHandlerManager, IPyMINLPConsHandler
+from pyminlp.conshdlr import *
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus
 from pyminlp.subprob import Instance
@@ -76,14 +83,16 @@ class InputTest(unittest.TestCase):
         self.instance = instance
         self.int_inst = Instance.create_instance(instance)
 
-        ConsHandler1._test = self
-        ConsHandler2._test = self
+        INTTEST_Hdlr_1._test = self
+        INTTEST_Hdlr_2._test = self
 
     def set_up_test(self):
         """Test of different function usages for setting up the solver.
         """
-        solver = PyMINLP()
-        coord = solver._coordinator
+        self.solver = PyMINLP()
+        solver = self.solver
+        self.coord = solver._coordinator
+        coord = self.coord
 
         self.assertRaises(ValueError, solver.solve, self.instance)
 
@@ -117,15 +126,17 @@ class InputTest(unittest.TestCase):
         self.assertRaises(SolvingStageError, solver.change_bounds, 'S[3]', 0)
         self.assertRaises(SolvingStageError, solver.match, 'Data[3]')
 
-        solver.use_constraint_handler('linear',
+        solver.use_constraint_handler('INTTEST_Hdlr_1',
                                       ['InfDynamics', 'SusDynamics'],
                                       2)
 
         self.assertRaises(ValueError, solver.solve, self.instance)
-        self.assertRaises(ValueError, solver.use_constraint_handler, 'linear',
+        self.assertRaises(ValueError, solver.use_constraint_handler,
+                          'INTTEST_Hdlr_1',
                           ['InfDynamics', 'SusDynamics', 'Data'], 2)
 
-        solver.use_constraint_handler('quad', ['InfDynamics', 'Data'], 3)
+        solver.use_constraint_handler('INTTEST_Hdlr_2',
+                                      ['InfDynamics', 'Data'], 3)
 
         self.assertRaises(UserInputError, solver.solve, self.instance)
 
@@ -141,20 +152,9 @@ class InputTest(unittest.TestCase):
         Stats.initialise(1)
 
         # Test identify.
-        ch1 = ConsHandlerManager()
-        ch1._generator = ConsHandler1.create
-        ch1._name = ConsHandler1.name()
-        ch1.set_relax(True)
-        ch1.add_constypes(['Data'])
-        ch1.set_prio(1, 1)
-        coord.add_conshandler(ch1)
-        ch2 = ConsHandlerManager()
-        ch2._generator = ConsHandler2.create
-        ch2._name = ConsHandler2.name()
-        ch2.set_relax(False)
-        ch2.add_constypes(['InfDynamics', 'SusDynamics'])
-        ch2.set_prio(2, 2)
-        coord.add_conshandler(ch2)
+        solver.use_constraint_handler('INTTEST_Hdlr_1', ['Data'], 1, 1, True)
+        solver.use_constraint_handler('INTTEST_Hdlr_2',
+                                      ['InfDynamics', 'SusDynamics'], 2, 2)
 
         coord._stage = SolvingStage.SOLVING
 
@@ -165,37 +165,30 @@ class InputTest(unittest.TestCase):
         self.assertRaises(UserInputError, coord.identify)
 
         # Test prepare.
-        ConsHandler1._mode = 1
-        ConsHandler2._mode = 1
+        INTTEST_Hdlr_1._mode = 1
+        INTTEST_Hdlr_2._mode = 1
         self.assertEqual(coord.prepare(), UserInputStatus.BRANCHED)
-        ConsHandler1._mode = 2
-        ConsHandler2._mode = 2
+        INTTEST_Hdlr_1._mode = 2
+        INTTEST_Hdlr_2._mode = 2
         self.assertEqual(coord.prepare(), UserInputStatus.INFEASIBLE)
-        ConsHandler1._mode = 3
-        ConsHandler2._mode = 3
+        INTTEST_Hdlr_1._mode = 3
+        INTTEST_Hdlr_2._mode = 3
         self.assertEqual(coord.prepare(), UserInputStatus.OK)
-        ConsHandler1._mode = 4
-        ConsHandler2._mode = 4
+        INTTEST_Hdlr_1._mode = 4
+        INTTEST_Hdlr_2._mode = 4
         self.assertRaises(UserInputError, coord.prepare)
 
 
-class ConsHandler1(IPyMINLPConsHandler):
+class INTTEST_Hdlr_1(SingletonPlugin):
+    implements(IPyMINLPConsHandler)
 
     _test = None
     _mode = 0
 
-    @classmethod
-    def create(cls):
-        return ConsHandler1()
-
-    @classmethod
-    def name(cls):
-        return '#1'
-
-    def identify(self, sets, model):
-        test = ConsHandler1._test
+    def identify(self, sets, model, tsolver):
+        test = INTTEST_Hdlr_1._test
         solver = test.solver
-        if ConsHandler1._mode != 0:
+        if INTTEST_Hdlr_1._mode != 0:
             for type in sets.keys():
                 indices = sets[type]
                 for index in indices:
@@ -208,65 +201,78 @@ class ConsHandler1(IPyMINLPConsHandler):
             solver.match('Data[3]')
             test.assertEqual(test.coord._cur_instance.nunclassified() + 1, nunc)
 
-    def prepare(self, sets, model):
-        test = ConsHandler1._test
+    def prepare(self, sets, model, tsolver):
+        test = INTTEST_Hdlr_1._test
         solver = test.solver
-        if ConsHandler1._mode == 1:
+        if INTTEST_Hdlr_1._mode == 1:
             solver.add_constraints('Dummy1', test.add_cons)
             solver.branch('S[3]', 0)
-        elif ConsHandler1._mode == 2:
+        elif INTTEST_Hdlr_1._mode == 2:
             solver.add_constraints('Dummy2', test.add_cons)
             solver.declare_infeasible()
             solver.branch('S[3]', 0)
-        elif ConsHandler1._mode == 3:
+        elif INTTEST_Hdlr_1._mode == 3:
             solver.add_constraints('Dummy3', test.add_cons)
         else:
             solver.match('Data[3]')
 
-    def enforce(self, sets, model):
-        test = ConsHandler1._test
+    def enforce(self, sets, model, tsolver):
+        test = INTTEST_Hdlr_1._test
         solver = test.solver
-        if ConsHandler1._mode == 1:
+        if INTTEST_Hdlr_1._mode == 1:
             solver.add_constraints('Dummy1', test.add_cons)
             solver.branch('S[3]', 0)
-        elif ConsHandler1._mode == 2:
+        elif INTTEST_Hdlr_1._mode == 2:
             solver.add_constraints('Dummy2', test.add_cons)
             solver.declare_infeasible()
             solver.branch('S[3]', 0)
-        elif ConsHandler1._mode == 3:
+        elif INTTEST_Hdlr_1._mode == 3:
             solver.add_constraints('Dummy3', test.add_cons)
-        elif ConsHandler1._mode == 4:
+        elif INTTEST_Hdlr_1._mode == 4:
             solver.match('Data[3]')
-        elif ConsHandler1._mode == 5:
+        elif INTTEST_Hdlr_1._mode == 5:
             return
 
 
-class ConsHandler2(IPyMINLPConsHandler):
+class INTTEST_Hdlr_2(SingletonPlugin):
+    implements(IPyMINLPConsHandler)
 
     _test = None
     _mode = 0
 
     @classmethod
     def create(cls):
-        return ConsHandler2()
+        return INTTEST_Hdlr_2()
 
     @classmethod
     def name(cls):
         return '#2'
 
-    def identify(self, sets, model, solver):
-        test = ConsHandler1._test
+    def identify(self, sets, model, tsolver):
+        test = INTTEST_Hdlr_2._test
         solver = test.solver
-        if ConsHandler1._mode != 0:
+        if INTTEST_Hdlr_2._mode != 0:
             for type in sets.keys():
                 indices = sets[type]
                 for index in indices:
                     solver.match(model.component(type)[index])
 
-    def prepare(self, sets, model, solver):
-        if ConsHandler2._mode == 1 or ConsHandler2._mode == 2:
+    def prepare(self, sets, model, tsolver):
+        if INTTEST_Hdlr_2._mode == 1 or INTTEST_Hdlr_2._mode == 2:
             raise Exception('Should not be reached')
 
-    def enforce(self, sets, model, solver):
-        if ConsHandler2._mode == 1 or ConsHandler2._mode == 2:
+    def enforce(self, sets, model, tsolver):
+        if INTTEST_Hdlr_2._mode == 1 or INTTEST_Hdlr_2._mode == 2:
             raise Exception('Should not be reached')
+
+
+def main():
+    suite1 = InputTest()
+    suite1.setUp()
+    suite1.set_up_test()
+    suite1.setUp()
+    suite1.solving_stage_test()
+
+
+if __name__ == '__main__':
+    unittest.main()

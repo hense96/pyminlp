@@ -1,3 +1,9 @@
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
+
+
 from pyomo.environ import *
 from pyminlp.solver import PyMINLP
 from pyminlp.subprob import *

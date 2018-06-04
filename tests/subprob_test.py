@@ -1,3 +1,7 @@
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
 
 
 import unittest
@@ -60,8 +64,10 @@ class DiseaseEstimation(unittest.TestCase):
                          'instances/pyomo_disease_estimation.dat')
 
         self.instance = instance
-        self.dummy1 = ConsHandlerDummy1()
-        self.dummy2 = ConsHandlerDummy2()
+        self.dummy1 = ConsHandlerManager.create('dummy1', [], 0, 0,
+                                                False, None)
+        self.dummy2 = ConsHandlerManager.create('dummy2', [], 0, 0,
+                                                False, None)
 
 
     def data_consistency_test(self):
@@ -668,8 +674,10 @@ class SimpleInstance(unittest.TestCase):
         model.C2 = Constraint(rule=cons_rule_2)
 
         self.instance = model
-        self.dummy1 = ConsHandlerDummy1()
-        self.dummy2 = ConsHandlerDummy2()
+        self.dummy1 = ConsHandlerManager.create('dummy1', [], 0, 0,
+                                                False, None)
+        self.dummy2 = ConsHandlerManager.create('dummy2', [], 0, 0,
+                                                False, None)
         self.relax_solver = [SolverFactory('cbc'), SolverFactory('glpk')]
 
 
@@ -694,12 +702,12 @@ class SimpleInstance(unittest.TestCase):
         """
         int_inst = Instance.create_instance(self.instance)
         model = int_inst.model().clone()
-        self.dummy1.set_relax(True)
-        self.dummy2.set_relax(False)
+        self.dummy1._relax = True
+        self.dummy2._relax = False
         int_inst.register_conshandler(model.C1.name, self.dummy1)
-        self.dummy1.add_constypes(['C1'])
+        self.dummy1._constypes.append('C1')
         int_inst.register_conshandler(model.C2.name, self.dummy2)
-        self.dummy2.add_constypes(['C2'])
+        self.dummy2._constypes.append('C2')
 
         self.assertEqual(int_inst.relaxation_solved(), False)
 
@@ -734,7 +742,7 @@ class SimpleInstance(unittest.TestCase):
         new_cons = int_inst.model().component('C3')
         for c in new_cons:
             int_inst.register_conshandler(new_cons[c].name, self.dummy1)
-        self.dummy1.add_constypes(['C3'])
+        self.dummy1._constypes.append('C3')
 
         # Optimal case, infeasible for actual instance.
         for relax_solver in self.relax_solver:
@@ -792,7 +800,7 @@ class SimpleInstance(unittest.TestCase):
         new_cons = child_inst.model().component('C3')
         for c in new_cons:
             child_inst.register_conshandler(new_cons[c].name, self.dummy1)
-        self.dummy1.add_constypes(['C3'])
+        self.dummy1._constypes.append('C3')
 
         # Infeasible case.
         for relax_solver in self.relax_solver:
@@ -819,14 +827,6 @@ class SimpleInstance(unittest.TestCase):
         self.assertEqual(int_inst.model().component('XS').lb, 0)
 
 
-class ConsHandlerDummy1(ConsHandlerManager):
-    def name(self):
-        return 'dummy1'
-
-class ConsHandlerDummy2(ConsHandlerManager):
-    def name(self):
-        return 'dummy2'
-
 def main():
     suite1 = DiseaseEstimation()
     suite1.setUp()
@@ -838,6 +838,7 @@ def main():
     suite2 = SimpleInstance()
     suite2.setUp()
     suite2.relaxation_solution_test()
+
 
 if __name__ == '__main__':
     unittest.main()

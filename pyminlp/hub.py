@@ -14,7 +14,6 @@ import pyomo.core.kernel
 from pyomo.environ import *
 
 from pyminlp.conshdlr import *
-
 from pyminlp.subprob import Instance
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus

@@ -1,3 +1,8 @@
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
+
 # This is a plugin for solving generic QCP.
 # It distinguishes between linear constraints, convex quadratic
 # and nonconvex quadratic constraints.
