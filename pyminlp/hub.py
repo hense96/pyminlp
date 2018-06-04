@@ -1,4 +1,7 @@
-# This module coordinates all user related operations.
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
 
 
 import heapq

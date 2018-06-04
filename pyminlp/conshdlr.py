@@ -1,3 +1,8 @@
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
+
 
 from pyutilib.component.core import *
 

@@ -1,5 +1,7 @@
-# This module is the interface module for the user.
-# It checks the input format and passes the information to the hub.
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
 
 
 from pyomo.environ import *
@@ -7,7 +9,6 @@ from pyomo.environ import *
 from pyminlp.hub import Coordinator
 from pyminlp.hub import SolvingStage
 from pyminlp.hub import SolvingStageError
-from pyminlp.hub import UserInputError
 
 
 class PyMINLP:

@@ -1,8 +1,10 @@
-# This module collects statistics from a solving process, processes
-# them and generates output data.
+# ______________________________________________________________________
 #
-# TODO maybe: no access of private variables.
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
 
+
+# TODO maybe: no access of private variables.
 
 import numpy as np
 import time

@@ -1,6 +1,7 @@
-# This module coordinates the branch and bound process on an abstract
-# level. For any user related functions, it calls the functions of the
-# hub.
+# ______________________________________________________________________
+#
+#    This module is part of the PyMINLP solver framework.
+# ______________________________________________________________________
 
 
 import numpy as np
