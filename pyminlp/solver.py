@@ -194,6 +194,8 @@ class PyMINLP:
     def solve(self, py_model):
         """Solves the given instance.
 
+        WARNING: Currently only minimisation problems allowed.
+
         Preconditions: Solving stage needs to be SETUP. The solver
         setup needs to be done, i.e. at least
             - constraint handlers covering all constraint types are
@@ -210,7 +212,7 @@ class PyMINLP:
             raise SolvingStageError('Can not call this function in solving '
                                     'stage {}. Expected SETUP.'.format(stage))
 
-        self._coordinator.solve(py_model)
+        return self._coordinator.solve(py_model)
 
     # Functions for implementing plugins.
 

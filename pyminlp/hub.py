@@ -4,6 +4,12 @@
 import heapq
 from enum import Enum
 
+from pyomo.opt.results.results_ import SolverResults
+from pyomo.opt.results.solution import Solution, SolutionStatus
+from pyomo.opt.results.solver import TerminationCondition, SolverStatus
+import pyomo.core.kernel
+from pyomo.environ import *
+
 from pyminlp.subprob import Instance
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus
@@ -21,9 +27,11 @@ class Coordinator:
     new instance.
 
     Private class attributes:
-      1.: User given data
+      1.: User related data
         _py_model     The user given pyomo model (ConcreteObject) to
                           solve.
+        _result       The Pyomo SolverResult object providing data
+                          about the result of the solving process.
         _relaxation_solver
                       The user given relaxation solver object.
         _hdlrs_ident  The priorised heapq of used constraint handlers
@@ -67,8 +75,9 @@ class Coordinator:
 
     def __init__(self):
         """Constructor setting attributes to None."""
-        # User data.
+        # User related data.
         self._py_model = None
+        self._result = None
         self._relaxation_solver = None
         self._hdlrs_ident = []
         self._hdlrs_enf = []
@@ -384,7 +393,8 @@ class Coordinator:
         self._stage = SolvingStage.SOLVING
         self._bnb_tree.execute(self._gap_epsilon)
         self._stage = SolvingStage.DONE
-        print('Done')
+        self._postprocess()
+        return self._result
 
     # Information for solver interface.
 
@@ -415,6 +425,78 @@ class Coordinator:
         # Check if a relaxation solver is registered.
         if self._relaxation_solver is None:
             raise ValueError('No relaxation solver is set.')
+
+    def _postprocess(self):
+        """Create a SolverResult object, save it as _result and write
+        solution data onto the user given Pyomo object (_py_model).
+        """
+        assert self._stage == SolvingStage.DONE
+
+        # Copy solution to model.
+        optinst = self._bnb_tree.best_instance()
+        if optinst is not None:
+            optinst.write_solution(self._py_model)
+
+        # Create result object.
+        self._result = SolverResults()
+        soln = Solution()
+
+        # Set some result meta data.
+        self._result.solver.name = ('PyMINLP')
+        self._result.solver.wallclock_time = Stats.get_solver_time()
+
+        # Set solver status.
+        if optinst is None:
+            self._result.solver.status = SolverStatus.ok
+            self._result.solver.termination_condition \
+                = TerminationCondition.infeasible
+            soln.status = SolutionStatus.infeasible
+        else:
+            self._result.solver.status = SolverStatus.ok
+            self._result.solver.termination_condition \
+                = TerminationCondition.optimal
+            soln.status = SolutionStatus.optimal
+        # TODO add more possible status returns.
+
+        # Set solution data.
+        self._result.problem.sense = pyomo.core.kernel.minimize
+        self._result.problem.lower_bound = self._bnb_tree.lower_bound()
+        self._result.problem.upper_bound = self._bnb_tree.upper_bound()
+        soln.gap = self._bnb_tree.upper_bound() - self._bnb_tree.lower_bound()
+
+        # Set problem instance data.
+        self._result.problem.name = self._py_model.name
+        self._result.problem.number_of_constraints = \
+            self._py_model.nconstraints()
+        #self._result.problem.number_of_nonzeros = None
+        self._result.problem.number_of_variables = self._py_model.nvariables()
+        #self._result.problem.number_of_binary_variables = None
+        #self._result.problem.number_of_integer_variables = None
+        #self._result.problem.number_of_continuous_variables = None
+        self._result.problem.number_of_objectives = \
+            self._py_model.nobjectives()
+
+        # Set objective data.
+        obj = self._py_model.component_objects(Objective)
+        for o in obj:
+            obj_name = o.name
+            obj_val = value(o)
+            break
+        soln.objective[obj_name] = {'Value': obj_val}
+
+        # Set variable data.
+        for vartype in self._py_model.component_objects(Var):
+            for v in vartype:
+                name = vartype[v].name
+                val = value(vartype[v])
+                soln.variable[name] = {'Value': val}
+
+        # Set branch and bound data.
+        nsubprob = 'Number of created subproblems'
+        self._result.solver.statistics.branch_and_bound[nsubprob] = \
+            self._bnb_tree.nopennodes() + self._bnb_tree.nconsiderednodes()
+
+        self._result.solution.insert(soln)
 
 
 class SolvingStage(Enum):

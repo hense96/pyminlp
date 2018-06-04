@@ -213,6 +213,24 @@ class Instance:
 
     # Interface functions for solving process modules.
 
+    def write_solution(self, py_model):
+        """Write the variable values of the solution of the relaxation
+        onto the given Pyomo ConreteModel.
+        Precondition: The relaxation of the instance is solved and
+        has an optimal solution.
+        :param py_model: A Pyomo ConcreteModel having all variables
+        that this instance has.
+        """
+        assert type(py_model) is ConcreteModel
+        assert self.relaxation_solved()
+        assert self.has_optimal_solution()
+        sol = self.relax_model()
+        for vartype in sol.component_objects(Var):
+            for v in vartype:
+                model_var = py_model.component(vartype.name)[v]
+                model_var.value = value(vartype[v])
+
+
     def feasible(self):
         """Returns True if the solution of the relaxation of the
         instance is feasible for the instance.
@@ -245,7 +263,9 @@ class Instance:
             == TerminationCondition.infeasible
 
     def relax_termination_condition(self):
-        """Returns the TerminationCondition of the relaxation solver."""
+        """Returns the TerminationCondition of the relaxation solver.
+        Precondition: The relaxation of the instance is solved.
+        """
         assert self.relaxation_solved()
         return self._relax.termination_condition
 

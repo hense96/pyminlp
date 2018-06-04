@@ -33,8 +33,9 @@ def foo(filename):
     solver.set_epsilon(0.0001, 0.0001)
     solver.set_verbosity(2)
 
-    solver.solve(model)
+    res = solver.solve(model)
 
+    print(res)
 
 
 def plugin_simulation(model, solver):

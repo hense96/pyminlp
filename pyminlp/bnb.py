@@ -32,6 +32,9 @@ class BranchAndBound:
                          lower bound of the nodes. The objects in the
                          queue have the following shape:
                              (priority, object)
+        _node_count  The number of nodes that have been considered.
+                         Open nodes that have not been considered yet
+                         do not influence this number.
         _root_node   The root node of the branch and bound tree (_Node
                          object).
         _cur_node    The node that is currently being considered within
@@ -59,6 +62,7 @@ class BranchAndBound:
         """Constructor setting attributes to None."""
         self._interface = None
         self._open_nodes = []
+        self._node_count = None
         self._root_node = None
         self._cur_node = None
         self._child_nodes = None
@@ -79,11 +83,10 @@ class BranchAndBound:
         open_nodes = self._open_nodes
         heapq.heappush(open_nodes,
                        (self._root_node.lower_bound, self._root_node))
-        node_count = 0
+        self._node_count = 0
 
         # Outer loop for all generated nodes.
         while len(open_nodes) > 0:
-            node_count += 1
 
             # Update global lower bound if possible.
             lower, _ = open_nodes[0]
@@ -100,6 +103,7 @@ class BranchAndBound:
             node = self._cur_node
             self._interface.set_instance(node.instance)
             self._child_nodes = []
+            self._node_count += 1
 
             # Read the minimal lower bound of all other nodes.
             if len(open_nodes) > 0:
@@ -234,6 +238,48 @@ class BranchAndBound:
             node = _Node.create_node(instance=inst,
                                      parent_node=self._cur_node)
             self._child_nodes.append(node)
+
+    # Getter functions.
+
+    def best_instance(self):
+        """Returns the instance of the best node found in the branch
+        and bound process. This instance holds the best feasible
+        solution, for example. If None is returned, no feasible node
+        has been found.
+        :return: An Instance object or None.
+        """
+        if self._best_node is None:
+            return None
+        else:
+            return self._best_node.instance
+
+    def nconsiderednodes(self):
+        """Returns the number of nodes that have been considered in the
+        solving process.
+        """
+        assert self._node_count is not None
+        return self._node_count
+
+    def nopennodes(self):
+        """Returns the number of nodes that have been created but not
+        considered yet.
+        """
+        assert self._open_nodes is not None
+        return len(self._open_nodes)
+
+    def lower_bound(self):
+        """Returns the best found lower bound for the objective
+        function value.
+        """
+        assert self._lower_bound is not None
+        return self._lower_bound
+
+    def upper_bound(self):
+        """Returns the best found upper bound for the objective
+        function value.
+        """
+        assert self._upper_bound is not None
+        return self._upper_bound
 
 
 class UserInputStatus(Enum):

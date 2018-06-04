@@ -193,6 +193,14 @@ class Stats:
         if stats.verb == Verbosity.DEBUG:
             print(' -> separate ({}).'.format(curdata.handler.name()))
 
+    # Interface methods for accessing data inside the solver.
+
+    @classmethod
+    def get_solver_time(cls):
+        stats = cls._stats
+        assert stats.solver_time is not None
+        return stats.solver_time
+
 
 class Verbosity(Enum):
     """Defines different levels of verbosity."""
