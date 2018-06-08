@@ -62,7 +62,7 @@ class Stats:
         if stage == 0:
             out = '\nPyMINLP starts solving.\n'
         elif stage == 2:
-            out = '\nPyMINLP finished solving.\n'
+            out = '\nPyMINLP has finished solving.\n'
         else:
             out = '\nPyMINLP is solving.\n'
         out += '  Solving time: \t {:.3f} s\n'.format(time.clock()
@@ -200,8 +200,10 @@ class Stats:
     @classmethod
     def get_solver_time(cls):
         stats = cls._stats
-        assert stats.solver_time is not None
-        return stats.solver_time
+        if stats.solver_time is not None:
+            return stats.solver_time
+        else:
+            return time.clock() - stats.solver_start_time
 
 
 class Verbosity(Enum):

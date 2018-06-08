@@ -95,6 +95,7 @@ class Coordinator:
         self._gap_epsilon = None
         self._cons_epsilon = None
         self._verbosity = None
+        self._time_limit = None
         # References.
         self._bnb_tree = None
         self._solver = None
@@ -172,7 +173,7 @@ class Coordinator:
         function, a current data object is appended to the _curdata
         stack.
 
-        Unaccepted user operations: Branching.
+        Unaccepted user operations: None.
 
         :return: A UserInputStatus.
         """
@@ -258,6 +259,9 @@ class Coordinator:
 
         raise UserInputError('Enforcement failed. No constraint handler '
                              'called an interface function.')
+
+    def time_limit_reached(self):
+        return Stats.get_solver_time() > self._time_limit
 
     # Interface functions for plugin functions.
 
@@ -383,6 +387,9 @@ class Coordinator:
         the solving process the solver provides."""
         self._verbosity = verbosity
 
+    def set_time_limit(self, time_limit):
+        self._time_limit = time_limit
+
     def solve(self, py_model):
         """Initiates the solving process. Calls the branch and bound
         algorithm.
@@ -479,18 +486,34 @@ class Coordinator:
             self._result.solver.termination_condition \
                 = TerminationCondition.infeasible
             soln.status = SolutionStatus.infeasible
+            # TODO add more possible status returns.
         else:
             self._result.solver.status = SolverStatus.ok
             self._result.solver.termination_condition \
                 = TerminationCondition.optimal
             soln.status = SolutionStatus.optimal
-        # TODO add more possible status returns.
 
-        # Set solution data.
-        self._result.problem.sense = pyomo.core.kernel.minimize
-        self._result.problem.lower_bound = self._bnb_tree.lower_bound()
-        self._result.problem.upper_bound = self._bnb_tree.upper_bound()
-        soln.gap = self._bnb_tree.upper_bound() - self._bnb_tree.lower_bound()
+            # Set solution data.
+            self._result.problem.sense = pyomo.core.kernel.minimize
+            self._result.problem.lower_bound = self._bnb_tree.lower_bound()
+            self._result.problem.upper_bound = self._bnb_tree.upper_bound()
+            soln.gap = self._bnb_tree.upper_bound() \
+                       - self._bnb_tree.lower_bound()
+
+            # Set objective data.
+            obj = self._py_model.component_objects(Objective)
+            for o in obj:
+                obj_name = o.name
+                obj_val = value(o)
+                break
+            soln.objective[obj_name] = {'Value': obj_val}
+
+            # Set variable data.
+            for vartype in self._py_model.component_objects(Var):
+                for v in vartype:
+                    name = vartype[v].name
+                    val = value(vartype[v])
+                    soln.variable[name] = {'Value': val}
 
         # Set problem instance data.
         self._result.problem.name = self._py_model.name
@@ -503,21 +526,6 @@ class Coordinator:
         # self._result.problem.number_of_continuous_variables = None
         self._result.problem.number_of_objectives = \
             self._py_model.nobjectives()
-
-        # Set objective data.
-        obj = self._py_model.component_objects(Objective)
-        for o in obj:
-            obj_name = o.name
-            obj_val = value(o)
-            break
-        soln.objective[obj_name] = {'Value': obj_val}
-
-        # Set variable data.
-        for vartype in self._py_model.component_objects(Var):
-            for v in vartype:
-                name = vartype[v].name
-                val = value(vartype[v])
-                soln.variable[name] = {'Value': val}
 
         # Set branch and bound data.
         nsubprob = 'Number of created subproblems'

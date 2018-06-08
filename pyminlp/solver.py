@@ -117,6 +117,10 @@ class PyMINLP:
         # Call the internal function.
         self._coordinator.set_verbosity(verbosity)
 
+    def set_time_limit(self, time_limit):
+        assert time_limit >= 0
+        self._coordinator.set_time_limit(time_limit)
+
     def use_constraint_handler(self, name, constypes, identify_prio,
                                enforce_prio=None, relaxation=False):
         """Integrates a constraint handler into the solving process.

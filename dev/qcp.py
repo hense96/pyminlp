@@ -4,9 +4,7 @@
 # ______________________________________________________________________
 
 
-from pyomo.environ import *
 from pyminlp.solver import PyMINLP
-from pyminlp.subprob import *
 from pyminlp.plugins.quad import *
 
 
@@ -41,7 +39,7 @@ def foo(filename):
 
     res = solver.solve(model)
 
-    # print(res)
+    print(res)
 
 
 def plugin_simulation(model, solver):

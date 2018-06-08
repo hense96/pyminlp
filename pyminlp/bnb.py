@@ -214,9 +214,15 @@ class BranchAndBound:
                                 'call is {}. Expected OK, RESOLVE '
                                 'or INFEASIBLE.'.format(result))
 
+                if self._interface.time_limit_reached():
+                    break
+
             Stats.finish_node(self)
 
-        if len(open_nodes) == 0:
+            if self._interface.time_limit_reached():
+                break
+
+        if len(open_nodes) == 0 and self._best_node is not None:
             self._lower_bound = self._best_node.lower_bound
 
         Stats.finish_bnb(self)
