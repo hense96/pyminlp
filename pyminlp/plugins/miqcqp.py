@@ -89,7 +89,7 @@ class MIQCQPLinear(SingletonPlugin):
                     cu = - model.cl[index]
                 elif constype == 'Cut':
                     b = _get_numpy_rep(model, model.an, 1, index)
-                    cu = value(model.cn[index])
+                    cu = model.Cut[index].upper
 
                 n = len(xl)
                 xi = 0
@@ -189,7 +189,7 @@ class MIQCQPConvex(SingletonPlugin):
 
                 # Compute cutting plane parameters.
                 an = b + np.multiply(2.0, np.matmul(np.transpose(x), A))
-                cn = (c - np.matmul(np.transpose(x), np.matmul(A, x)))
+                cn = - (c - np.matmul(np.transpose(x), np.matmul(A, x)))
 
                 an = _get_pyomo_rep(an, 1, _varlist)
 
@@ -202,8 +202,7 @@ class MIQCQPConvex(SingletonPlugin):
                 # Use interface function to add constraint.
                 solver.add_constraints(constype='Cut',
                                        constraints=model.Cut_new,
-                                       params={'an': model.a_new,
-                                               'cn': model.c_new})
+                                       params={'an': model.a_new})
 
                 model.del_component('a_new')
                 model.del_component('c_new')
@@ -233,11 +232,13 @@ class MIQCQPQuadratic(SingletonPlugin):
     def enforce(self, sets, model, solver):
         """Add McCormick underestimators, try to solve again,
         then branch."""
-        count = self.mccormick(sets, model, solver)
-        if count == 0 or model.name == self._enf_node:
-            self.branch(sets, model, solver)
-        else:
+        if model.name != self._enf_node:
             self._enf_node = model.name
+            count = self.mccormick(sets, model, solver)
+            if count == 0:
+                self.branch(sets, model, solver)
+        else:
+            self.branch(sets, model, solver)
 
     # Own functions.
 
@@ -259,7 +260,7 @@ class MIQCQPQuadratic(SingletonPlugin):
                     b = _get_numpy_rep(model, model.b, 1, index)
                     c = - model.cu[index]
                 elif constype == 'Quadcons2':
-                    A = _get_numpy_rep(model, model.A, 2, index)
+                    A = - _get_numpy_rep(model, model.A, 2, index)
                     b = - _get_numpy_rep(model, model.b, 1, index)
                     c = model.cl[index]
 
@@ -267,7 +268,7 @@ class MIQCQPQuadratic(SingletonPlugin):
                 bn, cn = self._compute_mccormick_params(A, b, c, x, xl, xu)
 
                 # Catch case all parameters are zero.
-                if np.all(bn) == 0.0:
+                if not np.any(bn):
                     continue
 
                 bn = _get_pyomo_rep(bn, 1, _varlist)
@@ -282,8 +283,7 @@ class MIQCQPQuadratic(SingletonPlugin):
                 # Use interface function to add constraint.
                 solver.add_constraints(constype='Cut',
                                        constraints=model.Cut_new,
-                                       params={'an': model.a_new,
-                                               'cn': model.c_new})
+                                       params={'an': model.a_new})
 
                 count += 1
 
@@ -312,12 +312,19 @@ class MIQCQPQuadratic(SingletonPlugin):
                             break
 
         if len(quadvar) > 0:
-            var = random.choice(quadvar)
+            varlist = quadvar
         elif len(linvar) > 0:
-            var = random.choice(linvar)
+            varlist = linvar
         else:
             solver.declare_infeasible()
             return
+
+        var = random.choice(varlist)
+
+        #diff = []
+        #for v in varlist:
+        #    diff.append((model.X[v].ub - model.X[v].lb, v))
+        #_, var = max(diff)
 
         xb = value(model.X[var])
         xl = model.X[var].lb
@@ -465,8 +472,8 @@ def _appears_in_A(model, varindex, A, consindex):
 
 
 def linear_rule(model):
-    body = sum(model.a_new[k] * model.X[k] for k in model.V) + model.c_new
-    return body <= 0.0
+    body = sum(model.a_new[k] * model.X[k] for k in model.V)
+    return body <= value(model.c_new)
 
 
 def reset_varlist():

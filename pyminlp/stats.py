@@ -90,7 +90,7 @@ class Stats:
         # Update bounds if possible.
         if bnb._lower_bound > stats.lower:
             stats.lower = bnb._lower_bound
-        if bnb._upper_bound > stats.upper:
+        if bnb._upper_bound < stats.upper:
             stats.upper = bnb._upper_bound
 
         # Printing.
@@ -133,7 +133,8 @@ class Stats:
             out = ' -> Finished node in {:.3f} s\n'.format(stats.node_time)
             if bnb._cur_node.branched:
                 reason = 'branching'
-            elif bnb._cur_node.feasible():
+            elif bnb._cur_node.instance.relaxation_solved()\
+                    and bnb._cur_node.feasible():
                 reason = 'feasible'
             else:
                 reason = 'infeasible'

@@ -110,7 +110,7 @@ class BranchAndBound:
             if len(open_nodes) > 0:
                 minimal_lower, _ = open_nodes[0]
             else:
-                minimal_lower = -np.inf
+                minimal_lower = None
 
             Stats.start_node(self)
 
@@ -160,10 +160,12 @@ class BranchAndBound:
                 if node.has_optimal_solution():
                     node.update_lower_bound()
                     # Update global lower bound if possible.
-                    if minimal_lower > self._lower_bound and \
-                       node.lower_bound > self._lower_bound:
-                        self._lower_bound = min(minimal_lower,
-                                                node.lower_bound)
+                    if node.lower_bound > self._lower_bound:
+                        if minimal_lower is None:
+                            self._lower_bound = node.lower_bound
+                        elif minimal_lower > self._lower_bound:
+                            self._lower_bound = min(minimal_lower,
+                                                    node.lower_bound)
                 elif node.relax_infeasible():
                     break
                 else:
