@@ -211,11 +211,39 @@ class Instance:
                     index_set.append(cons.index)
         return index_set
 
-    def nconstraints(self):
+    def nconstraints(self, conshandler=None, bounding=False):
         """Returns the number of constraints this instance has.
+        If a conshandler is given, it returns the number of constraints
+        assigned to this constraint handler.
+        If bounding is set to True, only constraints that have a lower
+        or upper bound (both not None) are considered.
+        :param conshandler: A ConsHandlerManager object.
+        :param bounding: A bool.
         :return: Number of constraints (int).
         """
-        return len(self._consmap.keys())
+        if conshandler is None:
+            if not bounding:
+                return len(self._consmap.keys())
+            else:
+                count = 0
+                for cons in self._consmap.values():
+                    if cons.pyrep.lower is not None or \
+                       cons.pyrep.upper is not None:
+                        count += 1
+                return count
+        else:
+            if conshandler.name() in self._classif:
+                if not bounding:
+                    return len(self._classif[conshandler.name()])
+                else:
+                    count = 0
+                    for cons in self._classif[conshandler.name()]:
+                        if cons.pyrep.lower is not None or \
+                                cons.pyrep.upper is not None:
+                            count += 1
+                    return count
+            else:
+                return 0
 
     def nunclassified(self):
         """Returns the number of constraints without constraint handler.

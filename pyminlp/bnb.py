@@ -73,7 +73,10 @@ class BranchAndBound:
 
     def execute(self, epsilon=None):
         """Performs the branch and bound algorithm.
-        Precondition: An instance is registered."""
+        Precondition: An instance is registered.
+        :param epsilon: The gap epsilon for finishing the solving
+        process.
+        :return: The result (BnBResult)."""
         assert self._root_node is not None
 
         Stats.start_bnb(self)
@@ -95,7 +98,8 @@ class BranchAndBound:
                 self._lower_bound = lower
 
             # Check if current solution is good enough.
-            if self._upper_bound - self._lower_bound < epsilon:
+            if epsilon is not None \
+                    and self._upper_bound - self._lower_bound < epsilon:
                 break
 
             # Perform node selection and register the chosen instance.
@@ -111,6 +115,11 @@ class BranchAndBound:
                 minimal_lower, _ = open_nodes[0]
             else:
                 minimal_lower = None
+
+            # Check time limit.
+            if self._interface.time_limit_reached():
+                Stats.finish_bnb(self)
+                return BnBResult.TIMEOUT
 
             Stats.start_node(self)
 
@@ -143,6 +152,11 @@ class BranchAndBound:
 
             # Inner loop for a single node.
             while not node_done:
+
+                # Check time limit.
+                if self._interface.time_limit_reached():
+                    Stats.finish_bnb(self)
+                    return BnBResult.TIMEOUT
 
                 Stats.start_rel_sol(self)
 
@@ -216,18 +230,17 @@ class BranchAndBound:
                                 'call is {}. Expected OK, RESOLVE '
                                 'or INFEASIBLE.'.format(result))
 
-                if self._interface.time_limit_reached():
-                    break
-
             Stats.finish_node(self)
-
-            if self._interface.time_limit_reached():
-                break
 
         if len(open_nodes) == 0 and self._best_node is not None:
             self._lower_bound = self._best_node.lower_bound
 
         Stats.finish_bnb(self)
+
+        if self._best_node is None:
+            return BnBResult.INFEASIBLE
+        else:
+            return BnBResult.OPTIMAL
 
     # Interface functions to influence the solving process.
 
@@ -299,6 +312,15 @@ class UserInputStatus(Enum):
     BRANCHED = 3
     INFEASIBLE = 4
     FAIL = 5
+
+
+class BnBResult(Enum):
+    """Enumeration for different results of the branch and bound
+    process."""
+    OPTIMAL = 1
+    INFEASIBLE = 2
+    TIMEOUT = 3
+    FAIL = 4
 
 
 class _Node:

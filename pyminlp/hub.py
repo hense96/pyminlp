@@ -17,6 +17,7 @@ from pyminlp.conshdlr import *
 from pyminlp.subprob import Instance
 from pyminlp.bnb import BranchAndBound
 from pyminlp.bnb import UserInputStatus
+from pyminlp.bnb import BnBResult
 from pyminlp.stats import Stats
 
 
@@ -406,9 +407,10 @@ class Coordinator:
         self._check_setup_sanity(instance)
         # Start solving process.
         self._stage = SolvingStage.SOLVING
-        self._bnb_tree.execute(self._gap_epsilon)
+        res = self._bnb_tree.execute(self._gap_epsilon)
         self._stage = SolvingStage.DONE
-        self._postprocess()
+        self._postprocess(res)
+        self._stage = SolvingStage.SETUP
         return self._result
 
     # Information for solver interface.
@@ -461,11 +463,14 @@ class Coordinator:
         assert conshandler.name() in self._hdlr_obj.keys()
         return self._hdlr_obj[conshandler.name()]
 
-    def _postprocess(self):
+    def _postprocess(self, result):
         """Create a SolverResult object, save it as _result and write
         solution data onto the user given Pyomo object (_py_model).
+        :param result: The BnBResult indicating the result of the
+        branch and bound process.
         """
         assert self._stage == SolvingStage.DONE
+        assert type(result) is BnBResult
 
         # Copy solution to model.
         optinst = self._bnb_tree.best_instance()
@@ -481,18 +486,23 @@ class Coordinator:
         self._result.solver.wallclock_time = Stats.get_solver_time()
 
         # Set solver status.
-        if optinst is None:
+        if result == BnBResult.INFEASIBLE:
             self._result.solver.status = SolverStatus.ok
             self._result.solver.termination_condition \
                 = TerminationCondition.infeasible
             soln.status = SolutionStatus.infeasible
-            # TODO add more possible status returns.
-        else:
+        elif result == BnBResult.OPTIMAL:
             self._result.solver.status = SolverStatus.ok
             self._result.solver.termination_condition \
                 = TerminationCondition.optimal
             soln.status = SolutionStatus.optimal
+        elif result == BnBResult.TIMEOUT:
+            self._result.solver.status = SolverStatus.ok
+            self._result.solver.termination_condition \
+                = TerminationCondition.maxTimeLimit
+            soln.status = SolutionStatus.stoppedByLimit
 
+        if result == BnBResult.OPTIMAL or result == BnBResult.TIMEOUT:
             # Set solution data.
             self._result.problem.sense = pyomo.core.kernel.minimize
             self._result.problem.lower_bound = self._bnb_tree.lower_bound()
@@ -500,20 +510,21 @@ class Coordinator:
             soln.gap = self._bnb_tree.upper_bound() \
                        - self._bnb_tree.lower_bound()
 
-            # Set objective data.
-            obj = self._py_model.component_objects(Objective)
-            for o in obj:
-                obj_name = o.name
-                obj_val = value(o)
-                break
-            soln.objective[obj_name] = {'Value': obj_val}
+            if optinst is not None:
+                # Set objective data.
+                obj = self._py_model.component_objects(Objective)
+                for o in obj:
+                    obj_name = o.name
+                    obj_val = value(o)
+                    break
+                soln.objective[obj_name] = {'Value': obj_val}
 
-            # Set variable data.
-            for vartype in self._py_model.component_objects(Var):
-                for v in vartype:
-                    name = vartype[v].name
-                    val = value(vartype[v])
-                    soln.variable[name] = {'Value': val}
+                # Set variable data.
+                #for vartype in self._py_model.component_objects(Var):
+                #    for v in vartype:
+                #        name = vartype[v].name
+                #        val = value(vartype[v])
+                #        soln.variable[name] = {'Value': val}
 
         # Set problem instance data.
         self._result.problem.name = self._py_model.name
@@ -531,6 +542,9 @@ class Coordinator:
         nsubprob = 'Number of created subproblems'
         self._result.solver.statistics.branch_and_bound[nsubprob] = \
             self._bnb_tree.nopennodes() + self._bnb_tree.nconsiderednodes()
+        nsubprob = 'Number of considered subproblems'
+        self._result.solver.statistics.branch_and_bound[nsubprob] = \
+            self._bnb_tree.nconsiderednodes()
 
         self._result.solution.insert(soln)
 

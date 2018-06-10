@@ -38,6 +38,9 @@ class Stats:
         self.nnodes = 0
         self.lower = -np.Inf
         self.upper = np.Inf
+        self.first_prepare_call = True
+        self.init_classif = []
+        self.init_nconstraints = 0
 
         # Node level information.
         self.node_start_time = None
@@ -184,6 +187,14 @@ class Stats:
         stats = cls._stats
         stats.n_cuts += curdata.ncuts
 
+        if stats.first_prepare_call:
+            instance = coord._cur_instance
+            for (_, hdlr) in coord._hdlrs_ident:
+                ncons = instance.nconstraints(hdlr, bounding=True)
+                stats.init_classif.append((hdlr.name(), ncons))
+            stats.first_prepare_call = False
+            stats.init_nconstraints = instance.nconstraints(bounding=True)
+
         if stats.verb == Verbosity.DEBUG:
             print(' -> prepare ({}).'.format(curdata.handler.name()))
 
@@ -205,6 +216,16 @@ class Stats:
             return stats.solver_time
         else:
             return time.clock() - stats.solver_start_time
+
+    @classmethod
+    def get_initial_hdlr_constraints(cls):
+        stats = cls._stats
+        return stats.init_classif
+
+    @classmethod
+    def get_bounding_initial_nconss(cls):
+        stats = cls._stats
+        return stats.init_nconstraints
 
 
 class Verbosity(Enum):
