@@ -26,7 +26,7 @@ class MINLPlibTester:
     """
 
     @classmethod
-    def create(self, paths):
+    def create(self, paths, include_convex_hdlr=True):
         """Factory method to generate a new MINLPlibTester object.
         :coordinator: The list of directory paths (str) containing the
         relevant .osil files.
@@ -34,7 +34,7 @@ class MINLPlibTester:
         tester = MINLPlibTester()
         for path in paths:
             tester.add_to_testset(path)
-        tester._set_up_solver()
+        tester._set_up_solver(include_convex_hdlr)
         return tester
 
     def __init__(self):
@@ -49,6 +49,11 @@ class MINLPlibTester:
         pathlist = Path(dir_str).glob('**/*.osil')
         for path in pathlist:
             self._testset.append(str(path))
+
+    def add_file_to_testset(self, path):
+        """Adds the .osil file of the given path (str) to the
+        list of instances to be solved."""
+        self._testset.append(path)
 
     def execute(self):
         """Solves all given instances."""
@@ -65,11 +70,8 @@ class MINLPlibTester:
                 print('Solved instances: {}/{}'.format(i, len(self._testset)))
 
     def set_output_file(self, filename):
-        """Registers a file to print the output to.
-        Note that the solver output is deactivated as well. If desired,
-        change this again after the call of this function."""
+        """Registers a file to print the output to."""
         self._output_file = filename
-        self._solver.set_verbosity(1)
 
     def set_sol_file(self, filename):
         """Registers the path (str) of the minlplib.solu file."""
@@ -83,7 +85,7 @@ class MINLPlibTester:
 
     # Internal functions.
 
-    def _set_up_solver(self):
+    def _set_up_solver(self, include_convex_hdlr):
         """Generate the PyMINLP solver and set default settings."""
         solver = PyMINLP()
 
@@ -93,11 +95,12 @@ class MINLPlibTester:
                                       identify_prio=1,
                                       enforce_prio=1,
                                       relaxation=True)
-        solver.use_constraint_handler(name='MIQCQPConvex',
-                                      constypes=['Quadcons1', 'Quadcons2'],
-                                      identify_prio=2,
-                                      enforce_prio=2,
-                                      relaxation=False)
+        if include_convex_hdlr:
+            solver.use_constraint_handler(name='MIQCQPConvex',
+                                          constypes=['Quadcons1', 'Quadcons2'],
+                                          identify_prio=2,
+                                          enforce_prio=2,
+                                          relaxation=False)
         solver.use_constraint_handler(name='MIQCQPQuadratic',
                                       constypes=['Quadcons1', 'Quadcons2'],
                                       identify_prio=3,
@@ -135,13 +138,24 @@ class MINLPlibTester:
 
         self._reset_solver()
         solver = self._solver
-        res = solver.solve(instance)
+        try:
+            res = solver.solve(instance)
+        except Exception:
+            if self._output_file is None:
+                print('Exception in solving process.')
+            else:
+                out = '\nException in solving process for instance {}.\n' \
+                      ''.format(filename)
+                file = open(self._output_file, 'a')
+                file.write(out)
+                file.close()
+            return
 
         if self._output_file is None:
-            #print(res)
+            # print(res)
             print(self._create_result_output(filename, is_min, is_quad,
                                              fake_bounds, res))
-            #pass
+            # pass
         else:
             out = self._create_result_output(filename, is_min, is_quad,
                                              fake_bounds, res)
@@ -209,10 +223,10 @@ class MINLPlibTester:
         bound_count = 0
         for var in problem.variables:
             if np.isinf(var.lb):
-                var.lb = -1000000
+                var.lb = -100000000
                 bound_count += 1
             if np.isinf(var.ub):
-                var.ub = 1000000
+                var.ub = 100000000
                 bound_count += 1
         if self._output_file is None:
             print('Randomly set variable bounds: {}'.format(bound_count))
@@ -299,7 +313,7 @@ class MINLPlibTester:
         :param problem: osil_parser.quadraticProblem object.
         :return: A Pyomo ConcreteModel.
         """
-        # Create an abstract model for a QCQP with linear objective
+        # Create an abstract model for a MIQCQP with linear objective
         model = ConcreteModel()
 
         # Sets

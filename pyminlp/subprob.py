@@ -356,6 +356,9 @@ class Instance:
         else:
             return len(self._relax.violated[conshandler.name()])
 
+    def _modelclone(self):
+        return self._model.clone()
+
     def solve_relaxation(self, solver, epsilon=None):
         """Creates and solves the relaxation of the instance. Moreover,
         computes additional data related to the relaxation solution,
@@ -366,7 +369,9 @@ class Instance:
         """
         assert self.nunclassified() == 0
         # Firstly, create the relaxation.
-        relax = self._model.clone()
+        # TODO delete, only for profiling
+        #relax = self._model.clone()
+        relax = self._modelclone()
         nonrel_cons = []
         # Deactivate non-relaxation constraints and remember them.
         for c in self._consmap.keys():

@@ -1,0 +1,907 @@
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/cvxnonsep_normcon20r.osil
+Objective: 	 min lin
+Upper bound: 	 -21.74914736
+Lower bound: 	 -21.74914736
+Constraints: 	 21
+Variables: 	 40
+Nonzeros: 	 <undefined>
+
+Solver time: 	 170.793
+Solution status: optimal
+Upper bound: 	 -21.749151897485
+Lower bound: 	 -21.749153376485
+Created nodes: 	 139
+Handled nodes: 	 138
+Constraints:
+  1 	 MIQCQPLinear
+  20 	 MIQCQPQuadratic
+Fake varbounds:  40
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/cvxnonsep_normcon30r.osil
+Objective: 	 min lin
+Upper bound: 	 -34.24396574
+Lower bound: 	 -34.24412827
+Constraints: 	 31
+Variables: 	 60
+Nonzeros: 	 <undefined>
+
+Solver time: 	 251.434
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -34.340584336250004
+Created nodes: 	 177
+Handled nodes: 	 89
+Constraints:
+  1 	 MIQCQPLinear
+  30 	 MIQCQPQuadratic
+Fake varbounds:  60
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/cvxnonsep_normcon40r.osil
+Objective: 	 min lin
+Upper bound: 	 -32.62966972
+Lower bound: 	 -32.62983932
+Constraints: 	 41
+Variables: 	 80
+Nonzeros: 	 <undefined>
+
+Solver time: 	 182.788
+Solution status: optimal
+Upper bound: 	 -32.62968190208
+Lower bound: 	 -32.62968187808
+Created nodes: 	 36
+Handled nodes: 	 36
+Constraints:
+  1 	 MIQCQPLinear
+  40 	 MIQCQPQuadratic
+Fake varbounds:  40
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/ex1263a.osil
+Objective: 	 min lin
+Upper bound: 	 19.6
+Lower bound: 	 19.6
+Constraints: 	 35
+Variables: 	 24
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.071
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 19.3
+Created nodes: 	 781
+Handled nodes: 	 700
+Constraints:
+  31 	 MIQCQPLinear
+  4 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/ex1264a.osil
+Objective: 	 min lin
+Upper bound: 	 8.6
+Lower bound: 	 8.6
+Constraints: 	 35
+Variables: 	 24
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.144
+Solution status: maxTimeLimit
+Upper bound: 	 9.3
+Lower bound: 	 8.3
+Created nodes: 	 817
+Handled nodes: 	 716
+Constraints:
+  31 	 MIQCQPLinear
+  4 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/ex1265a.osil
+Objective: 	 min lin
+Upper bound: 	 10.3
+Lower bound: 	 10.3
+Constraints: 	 44
+Variables: 	 35
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.018
+Solution status: maxTimeLimit
+Upper bound: 	 16.999999999999996
+Lower bound: 	 10.299999999999999
+Created nodes: 	 673
+Handled nodes: 	 537
+Constraints:
+  39 	 MIQCQPLinear
+  5 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/ex1266a.osil
+Objective: 	 min lin
+Upper bound: 	 16.3
+Lower bound: 	 16.3
+Constraints: 	 53
+Variables: 	 48
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.813
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 16.3
+Created nodes: 	 257
+Handled nodes: 	 222
+Constraints:
+  47 	 MIQCQPLinear
+  6 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/nvs02.osil
+Objective: 	 min quad
+Upper bound: 	 5.964184523
+Lower bound: 	 5.964184523
+Constraints: 	 7
+Variables: 	 9
+Nonzeros: 	 <undefined>
+
+Solver time: 	 277.437
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 5.9641845
+Created nodes: 	 545
+Handled nodes: 	 455
+Constraints:
+  0 	 MIQCQPLinear
+  7 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/nvs14.osil
+Objective: 	 min quad
+Upper bound: 	 -40358.15477
+Lower bound: 	 -40358.15477
+Constraints: 	 7
+Variables: 	 9
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.054
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -40358.155
+Created nodes: 	 489
+Handled nodes: 	 372
+Constraints:
+  0 	 MIQCQPLinear
+  7 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/smallinvDAXr2b020-022.osil
+Objective: 	 min lin
+Upper bound: 	 1.571527982
+Lower bound: 	 1.571527982
+Constraints: 	 4
+Variables: 	 31
+Nonzeros: 	 <undefined>
+
+Solver time: 	 280.364
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 0.06528968
+Created nodes: 	 439
+Handled nodes: 	 373
+Constraints:
+  3 	 MIQCQPLinear
+  1 	 MIQCQPQuadratic
+Fake varbounds:  32
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/smallinvDAXr2b200-220.osil
+Objective: 	 min lin
+Upper bound: 	 156.6042679
+Lower bound: 	 156.6042679
+Constraints: 	 4
+Variables: 	 31
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.112
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -114.77915
+Created nodes: 	 497
+Handled nodes: 	 397
+Constraints:
+  3 	 MIQCQPLinear
+  1 	 MIQCQPQuadratic
+Fake varbounds:  32
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/smallinvDAXr4b010-011.osil
+Objective: 	 min lin
+Upper bound: 	 0.398797498
+Lower bound: 	 0.398797498
+Constraints: 	 4
+Variables: 	 31
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.400
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 0.020185087
+Created nodes: 	 367
+Handled nodes: 	 301
+Constraints:
+  3 	 MIQCQPLinear
+  1 	 MIQCQPQuadratic
+Fake varbounds:  32
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/smallinvSNPr1b050-055.osil
+Objective: 	 min lin
+Upper bound: 	 1.47654951
+Lower bound: 	 1.47654951
+Constraints: 	 4
+Variables: 	 101
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.548
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -539.48743
+Created nodes: 	 79
+Handled nodes: 	 40
+Constraints:
+  3 	 MIQCQPLinear
+  1 	 MIQCQPQuadratic
+Fake varbounds:  102
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/smallinvSNPr1b200-220.osil
+Objective: 	 min lin
+Upper bound: 	 23.09925481
+Lower bound: 	 23.09925481
+Constraints: 	 4
+Variables: 	 101
+Nonzeros: 	 <undefined>
+
+Solver time: 	 252.684
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -10772.714
+Created nodes: 	 51
+Handled nodes: 	 26
+Constraints:
+  3 	 MIQCQPLinear
+  1 	 MIQCQPQuadratic
+Fake varbounds:  102
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/smallinvSNPr3b100-110.osil
+Objective: 	 min lin
+Upper bound: 	 6.199948214
+Lower bound: 	 6.199948214
+Constraints: 	 4
+Variables: 	 101
+Nonzeros: 	 <undefined>
+
+Solver time: 	 405.304
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -1865.5677
+Created nodes: 	 73
+Handled nodes: 	 37
+Constraints:
+  3 	 MIQCQPLinear
+  1 	 MIQCQPQuadratic
+Fake varbounds:  102
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tln2.osil
+Objective: 	 min lin
+Upper bound: 	 5.3
+Lower bound: 	 5.3
+Constraints: 	 12
+Variables: 	 8
+Nonzeros: 	 <undefined>
+
+Solver time: 	 1.142
+Solution status: optimal
+Upper bound: 	 5.3
+Lower bound: 	 5.3
+Created nodes: 	 7
+Handled nodes: 	 7
+Constraints:
+  10 	 MIQCQPLinear
+  2 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tln4.osil
+Objective: 	 min lin
+Upper bound: 	 8.3
+Lower bound: 	 8.3
+Constraints: 	 24
+Variables: 	 24
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.631
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 3.3
+Created nodes: 	 383
+Handled nodes: 	 304
+Constraints:
+  20 	 MIQCQPLinear
+  4 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tln5.osil
+Objective: 	 min lin
+Upper bound: 	 10.3
+Lower bound: 	 10.3
+Constraints: 	 30
+Variables: 	 35
+Nonzeros: 	 <undefined>
+
+Solver time: 	 326.688
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 3.2
+Created nodes: 	 259
+Handled nodes: 	 233
+Constraints:
+  25 	 MIQCQPLinear
+  0 	 MIQCQPConvex
+  5 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tln6.osil
+Objective: 	 min lin
+Upper bound: 	 15.3
+Lower bound: 	 15.3
+Constraints: 	 36
+Variables: 	 48
+Nonzeros: 	 <undefined>
+
+Solver time: 	 324.777
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 5.4
+Created nodes: 	 193
+Handled nodes: 	 150
+Constraints:
+  30 	 MIQCQPLinear
+  0 	 MIQCQPConvex
+  6 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tln7.osil
+Objective: 	 min lin
+Upper bound: 	 15.0
+Lower bound: 	 14.260294
+Constraints: 	 42
+Variables: 	 63
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.961
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 4.800000000000001
+Created nodes: 	 175
+Handled nodes: 	 154
+Constraints:
+  35 	 MIQCQPLinear
+  0 	 MIQCQPConvex
+  7 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tloss.osil
+Objective: 	 min lin
+Upper bound: 	 16.3
+Lower bound: 	 16.3
+Constraints: 	 53
+Variables: 	 48
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.732
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 16.3
+Created nodes: 	 179
+Handled nodes: 	 161
+Constraints:
+  47 	 MIQCQPLinear
+  0 	 MIQCQPConvex
+  6 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/MIQCQP/tltr.osil
+Objective: 	 min lin
+Upper bound: 	 48.06666667
+Lower bound: 	 48.06666667
+Constraints: 	 54
+Variables: 	 48
+Nonzeros: 	 <undefined>
+
+Solver time: 	 483.867
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 19.599999999999987
+Created nodes: 	 287
+Handled nodes: 	 240
+Constraints:
+  51 	 MIQCQPLinear
+  0 	 MIQCQPConvex
+  3 	 MIQCQPQuadratic
+Fake varbounds:  0
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/demo7.osil
+Objective: 	 min quad
+Upper bound: 	 -1589042.386
+Lower bound: 	 -1589042.386
+Constraints: 	 87
+Variables: 	 71
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.282
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -5020400.1
+Created nodes: 	 609
+Handled nodes: 	 317
+Constraints:
+  84 	 MIQCQPLinear
+  3 	 MIQCQPQuadratic
+Fake varbounds:  76
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/dispatch.osil
+Objective: 	 min quad
+Upper bound: 	 3155.287927
+Lower bound: 	 3155.287927
+Constraints: 	 4
+Variables: 	 5
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.007
+Solution status: maxTimeLimit
+Upper bound: 	 3201.2622
+Lower bound: 	 3151.0089
+Created nodes: 	 2177
+Handled nodes: 	 1424
+Constraints:
+  1 	 MIQCQPLinear
+  3 	 MIQCQPQuadratic
+Fake varbounds:  4
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex3_1_2.osil
+Objective: 	 min quad
+Upper bound: 	 -30665.53867
+Lower bound: 	 -30665.53867
+Constraints: 	 7
+Variables: 	 6
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.008
+Solution status: maxTimeLimit
+Upper bound: 	 -30665.54
+Lower bound: 	 -30665.541
+Created nodes: 	 765
+Handled nodes: 	 762
+Constraints:
+  0 	 MIQCQPLinear
+  7 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex3_1_3.osil
+Objective: 	 min quad
+Upper bound: 	 -310.0
+Lower bound: 	 -310.0
+Constraints: 	 7
+Variables: 	 7
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.045
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -439.84419
+Created nodes: 	 3459
+Handled nodes: 	 1730
+Constraints:
+  4 	 MIQCQPLinear
+  3 	 MIQCQPQuadratic
+Fake varbounds:  4
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex5_2_4.osil
+Objective: 	 min quad
+Upper bound: 	 -450.0
+Lower bound: 	 -450.0
+Constraints: 	 8
+Variables: 	 8
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.108
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -1349.9995
+Created nodes: 	 1893
+Handled nodes: 	 980
+Constraints:
+  4 	 MIQCQPLinear
+  4 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex5_2_5.osil
+Objective: 	 min quad
+Upper bound: 	 -3500.0
+Lower bound: 	 -6469.677618
+Constraints: 	 23
+Variables: 	 33
+Nonzeros: 	 <undefined>
+
+Solver time: 	 264.609
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -9700.0
+Created nodes: 	 699
+Handled nodes: 	 350
+Constraints:
+  11 	 MIQCQPLinear
+  12 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex5_3_3.osil
+Objective: 	 min quad
+Upper bound: 	 3.234018224
+Lower bound: 	 2.267206736
+Constraints: 	 107
+Variables: 	 63
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.156
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 1.631318
+Created nodes: 	 217
+Handled nodes: 	 111
+Constraints:
+  38 	 MIQCQPLinear
+  69 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex8_4_1.osil
+Objective: 	 min quad
+Upper bound: 	 0.6185727593
+Lower bound: 	 0.6185712093
+Constraints: 	 21
+Variables: 	 23
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.139
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -1.4065747
+Created nodes: 	 803
+Handled nodes: 	 408
+Constraints:
+  0 	 MIQCQPLinear
+  21 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex9_2_2.osil
+Objective: 	 min quad
+Upper bound: 	 99.99996939
+Lower bound: 	 99.99996939
+Constraints: 	 20
+Variables: 	 11
+Nonzeros: 	 <undefined>
+
+Solver time: 	 1.716
+Solution status: optimal
+Upper bound: 	 99.995733
+Lower bound: 	 99.995733
+Created nodes: 	 17
+Handled nodes: 	 17
+Constraints:
+  11 	 MIQCQPLinear
+  9 	 MIQCQPQuadratic
+Fake varbounds:  4
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex9_2_4.osil
+Objective: 	 min quad
+Upper bound: 	 0.5
+Lower bound: 	 0.5
+Constraints: 	 15
+Variables: 	 9
+Nonzeros: 	 <undefined>
+
+Solver time: 	 4.036
+Solution status: optimal
+Upper bound: 	 0.49999487
+Lower bound: 	 0.49999487
+Created nodes: 	 37
+Handled nodes: 	 37
+Constraints:
+  10 	 MIQCQPLinear
+  5 	 MIQCQPQuadratic
+Fake varbounds:  7
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex9_2_5.osil
+Objective: 	 min quad
+Upper bound: 	 5.000000146
+Lower bound: 	 5.000000146
+Constraints: 	 15
+Variables: 	 9
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.032
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 0.076034327
+Created nodes: 	 2615
+Handled nodes: 	 2531
+Constraints:
+  8 	 MIQCQPLinear
+  7 	 MIQCQPQuadratic
+Fake varbounds:  10
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex9_2_6.osil
+Objective: 	 min quad
+Upper bound: 	 -1.0
+Lower bound: 	 -1.0
+Constraints: 	 25
+Variables: 	 17
+Nonzeros: 	 <undefined>
+
+Solver time: 	 27.137
+Solution status: optimal
+Upper bound: 	 -1.0
+Lower bound: 	 -1.0
+Created nodes: 	 227
+Handled nodes: 	 227
+Constraints:
+  12 	 MIQCQPLinear
+  13 	 MIQCQPQuadratic
+Fake varbounds:  6
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex9_2_7.osil
+Objective: 	 min quad
+Upper bound: 	 17.0
+Lower bound: 	 17.0
+Constraints: 	 19
+Variables: 	 11
+Nonzeros: 	 <undefined>
+
+Solver time: 	 2.267
+Solution status: optimal
+Upper bound: 	 17.0
+Lower bound: 	 17.0
+Created nodes: 	 35
+Handled nodes: 	 35
+Constraints:
+  10 	 MIQCQPLinear
+  9 	 MIQCQPQuadratic
+Fake varbounds:  4
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/ex9_2_8.osil
+Objective: 	 min quad
+Upper bound: 	 1.5
+Lower bound: 	 1.5
+Constraints: 	 11
+Variables: 	 7
+Nonzeros: 	 <undefined>
+
+Solver time: 	 0.074
+Solution status: optimal
+Upper bound: 	 1.5
+Lower bound: 	 1.5
+Created nodes: 	 1
+Handled nodes: 	 1
+Constraints:
+  6 	 MIQCQPLinear
+  5 	 MIQCQPQuadratic
+Fake varbounds:  3
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/prolog.osil
+Objective: 	 min quad
+Upper bound: 	 -0.0
+Lower bound: 	 -0.0
+Constraints: 	 23
+Variables: 	 21
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.029
+Solution status: maxTimeLimit
+Upper bound: 	 inf
+Lower bound: 	 -1000000.0
+Created nodes: 	 2291
+Handled nodes: 	 1146
+Constraints:
+  20 	 MIQCQPLinear
+  3 	 MIQCQPQuadratic
+Fake varbounds:  22
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/st_e09.osil
+Objective: 	 min quad
+Upper bound: 	 -0.5000000001
+Lower bound: 	 -0.5000000001
+Constraints: 	 2
+Variables: 	 3
+Nonzeros: 	 <undefined>
+
+Solver time: 	 178.265
+Solution status: optimal
+Upper bound: 	 -0.50000875
+Lower bound: 	 -0.50000933
+Created nodes: 	 2375
+Handled nodes: 	 2292
+Constraints:
+  0 	 MIQCQPLinear
+  2 	 MIQCQPQuadratic
+Fake varbounds:  2
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/st_e28.osil
+Objective: 	 min quad
+Upper bound: 	 -30665.53867
+Lower bound: 	 -30665.53867
+Constraints: 	 8
+Variables: 	 10
+Nonzeros: 	 <undefined>
+
+Solver time: 	 280.988
+Solution status: maxTimeLimit
+Upper bound: 	 -29084.386
+Lower bound: 	 -30763.031
+Created nodes: 	 997
+Handled nodes: 	 609
+Constraints:
+  1 	 MIQCQPLinear
+  7 	 MIQCQPQuadratic
+Fake varbounds:  3
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/himmel11.osil
+Objective: 	 min quad
+Upper bound: 	 -30665.53867
+Lower bound: 	 -30665.53867
+Constraints: 	 8
+Variables: 	 10
+Nonzeros: 	 <undefined>
+
+Solver time: 	 250.094
+Solution status: maxTimeLimit
+Upper bound: 	 -30665.539
+Lower bound: 	 -30665.541
+Created nodes: 	 575
+Handled nodes: 	 572
+Constraints:
+  1 	 MIQCQPLinear
+  7 	 MIQCQPQuadratic
+Fake varbounds:  3
+--------------------------------------------------
+
+
+--------------------------------------------------
+Instance: 	 instances/minlplib_MIQCQP/osil/QCQP/hydro.osil
+Objective: 	 min quad
+Upper bound: 	 4366944.16
+Lower bound: 	 4366944.16
+Constraints: 	 43
+Variables: 	 32
+Nonzeros: 	 <undefined>
+
+Solver time: 	 60.720
+Solution status: optimal
+Upper bound: 	 4366944.2
+Lower bound: 	 4366944.2
+Created nodes: 	 95
+Handled nodes: 	 95
+Constraints:
+  30 	 MIQCQPLinear
+  13 	 MIQCQPQuadratic
+Fake varbounds:  14
+--------------------------------------------------
+
